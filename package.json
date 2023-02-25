@@ -1,6 +1,6 @@
 {
   "name": "@napi-rs/keyring",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "https://github.com/hwchen/keyring-rs Node.js binding via https://napi.rs",
   "main": "index.js",
   "repository": "https://github.com/Brooooooklyn/keyring-node",
