@@ -1,5 +1,5 @@
 {
-  "name": "@napi-rs/package-template-linux-x64-gnu",
+  "name": "@napi-rs/keyring-linux-x64-gnu",
   "version": "1.0.0",
   "os": [
     "linux"
@@ -7,14 +7,11 @@
   "cpu": [
     "x64"
   ],
-  "libc": [
-    "glibc"
-  ],
-  "main": "package-template.linux-x64-gnu.node",
+  "main": "keyring.linux-x64-gnu.node",
   "files": [
-    "package-template.linux-x64-gnu.node"
+    "keyring.linux-x64-gnu.node"
   ],
-  "description": "Template project for writing node package with napi-rs",
+  "description": "https://github.com/hwchen/keyring-rs Node.js binding via https://napi.rs",
   "keywords": [
     "napi-rs",
     "NAPI",
@@ -31,5 +28,8 @@
     "registry": "https://registry.npmjs.org/",
     "access": "public"
   },
-  "repository": "git@github.com:napi-rs/package-template.git"
+  "repository": "https://github.com/Brooooooklyn/keyring-node",
+  "libc": [
+    "glibc"
+  ]
 }
