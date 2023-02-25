@@ -1,5 +1,5 @@
 {
-  "name": "@napi-rs/package-template-freebsd-x64",
+  "name": "@napi-rs/keyring-freebsd-x64",
   "version": "1.0.0",
   "os": [
     "freebsd"
@@ -7,11 +7,11 @@
   "cpu": [
     "x64"
   ],
-  "main": "package-template.freebsd-x64.node",
+  "main": "keyring.freebsd-x64.node",
   "files": [
-    "package-template.freebsd-x64.node"
+    "keyring.freebsd-x64.node"
   ],
-  "description": "Template project for writing node package with napi-rs",
+  "description": "https://github.com/hwchen/keyring-rs Node.js binding via https://napi.rs",
   "keywords": [
     "napi-rs",
     "NAPI",
@@ -28,5 +28,5 @@
     "registry": "https://registry.npmjs.org/",
     "access": "public"
   },
-  "repository": "git@github.com:napi-rs/package-template.git"
+  "repository": "https://github.com/Brooooooklyn/keyring-node"
 }

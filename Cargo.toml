@@ -1,7 +1,7 @@
 [package]
 authors = ["LongYinan <lynweklm@gmail.com>"]
 edition = "2021"
-name    = "napi-package-template"
+name    = "napi-keyring"
 version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -10,11 +10,18 @@ version = "0.1.0"
 crate-type = ["cdylib"]
 
 [dependencies]
-napi        = "2"
+anyhow = "1"
+keyring = "2"
+napi = { version = "2", default-features = false, features = [
+  "napi3",
+  "error_anyhow",
+] }
 napi-derive = "2"
 
 [build-dependencies]
 napi-build = "2"
 
 [profile.release]
-lto = true
+lto       = "thin"
+opt-level = "z"
+strip     = "symbols"

@@ -1,8 +1,11 @@
 import test from 'ava'
 
-import { plus100 } from '../index'
+import { Entry } from '../index'
 
-test('sync function from native code', (t) => {
-  const fixture = 42
-  t.is(plus100(fixture), fixture + 100)
+test('Should create and get password back', (t) => {
+  const password = 'napi.rs'
+  const entry = new Entry('gnome-keyring', 'napi')
+  t.notThrows(() => entry.setPassword(password))
+  t.is(entry.getPassword(), password)
+  t.notThrows(() => entry.deletePassword())
 })

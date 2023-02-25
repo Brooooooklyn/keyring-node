@@ -107,9 +107,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@napi-rs/package-template@workspace:.":
+"@napi-rs/keyring@workspace:.":
   version: 0.0.0-use.local
-  resolution: "@napi-rs/package-template@workspace:."
+  resolution: "@napi-rs/keyring@workspace:."
   dependencies:
     "@napi-rs/cli": ^2.14.6
     "@swc-node/register": ^1.5.5
