@@ -1,6 +1,6 @@
 {
   "name": "@napi-rs/keyring-win32-x64-msvc",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "os": [
     "win32"
   ],
