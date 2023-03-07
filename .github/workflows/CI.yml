@@ -241,6 +241,7 @@ jobs:
         if: matrix.settings.host == 'ubuntu-latest'
         run: dbus-run-session -- bash -c "echo -n "test" | gnome-keyring-daemon --unlock && yarn test"
       - name: Test bindings
+        if: matrix.settings.host != 'ubuntu-latest'
         run: yarn test
 
   publish:
