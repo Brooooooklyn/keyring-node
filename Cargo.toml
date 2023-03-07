@@ -18,6 +18,22 @@ napi = { version = "2", default-features = false, features = [
 ] }
 napi-derive = "2"
 
+[target.'cfg(target_os = "windows")'.dependencies]
+byteorder = "1"
+windows = { version = "0.44", features = [
+  "Win32",
+  "Win32_Security_Credentials",
+  "Win32_Foundation",
+] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation        = "0.9"
+security-framework     = "2.6"
+security-framework-sys = "2.8"
+
+[target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
+secret-service = { version = "3", features = ["rt-async-io-crypto-rust"] }
+
 [build-dependencies]
 napi-build = "2"
 
