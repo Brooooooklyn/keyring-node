@@ -18,6 +18,14 @@ napi = { version = "2", default-features = false, features = [
 ] }
 napi-derive = "2"
 
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.44", features = ["Win32_Security_Credentials", "Win32_Foundation" ] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = "2.6"
+security-framework-sys = "2.8"
+core-foundation = "0.9"
+
 [build-dependencies]
 napi-build = "2"
 
