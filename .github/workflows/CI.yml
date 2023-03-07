@@ -200,7 +200,7 @@ jobs:
           path: ${{ env.APP_NAME }}.*.node
           if-no-files-found: error
   test:
-    name: Test bindings on ${{ matrix.settings.os }} - node@${{ matrix.node }}
+    name: Test bindings on ${{ matrix.settings.host }} - node@${{ matrix.node }}
     needs:
       - build
     strategy:
@@ -233,12 +233,12 @@ jobs:
       - name: Install dependencies
         run: yarn install
       - name: Install system components
-        if: matrix.settings.os == 'ubuntu-latest'
+        if: matrix.settings.host == 'ubuntu-latest'
         run: |
           sudo apt-get update -y
           sudo apt-get install -y gnome-keyring
       - name: Test bindings
-        if: matrix.settings.os == 'ubuntu-latest'
+        if: matrix.settings.host == 'ubuntu-latest'
         run: dbus-run-session -- bash -c "echo -n "test" | gnome-keyring-daemon --unlock && yarn test"
       - name: Test bindings
         run: yarn test

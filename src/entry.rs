@@ -80,7 +80,7 @@ impl Entry {
 
 #[napi(object)]
 pub struct Credential {
-  pub user: String,
+  pub account: String,
   pub password: String,
 }
 
@@ -99,7 +99,7 @@ impl Task for FindCredentials {
       find_credentials_(&self.service)
         .map_err(anyhow::Error::from)?
         .into_iter()
-        .map(|(user, password)| Credential { user, password })
+        .map(|(account, password)| Credential { account, password })
         .collect(),
     )
   }
@@ -116,7 +116,7 @@ pub fn find_credentials(service: String) -> Result<Vec<Credential>> {
     find_credentials_(&service)
       .map_err(anyhow::Error::from)?
       .into_iter()
-      .map(|(user, password)| Credential { user, password })
+      .map(|(account, password)| Credential { account, password })
       .collect(),
   )
 }
