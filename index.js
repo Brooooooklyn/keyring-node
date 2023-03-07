@@ -246,7 +246,8 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { Entry, findCredentials } = nativeBinding
+const { Entry, findCredentials, findCredentialsAsync } = nativeBinding
 
 module.exports.Entry = Entry
 module.exports.findCredentials = findCredentials
+module.exports.findCredentialsAsync = findCredentialsAsync

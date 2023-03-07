@@ -7,7 +7,10 @@ export interface Credential {
   user: string
   password: string
 }
+/** find credentials by service name */
 export function findCredentials(service: string): Array<Credential>
+/** find credentials by service name */
+export function findCredentialsAsync(service: string, signal?: AbortSignal | undefined | null): Promise<Array<Credential>>
 export class Entry {
   /**
    * Create an entry for the given service and username.

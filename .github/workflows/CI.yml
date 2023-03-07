@@ -200,7 +200,7 @@ jobs:
           path: ${{ env.APP_NAME }}.*.node
           if-no-files-found: error
   test:
-    name: Test bindings on node@${{ matrix.node }}
+    name: Test bindings on ${{ matrix.settings.os }} - node@${{ matrix.node }}
     needs:
       - build
     strategy:
@@ -210,19 +210,25 @@ jobs:
           - '14'
           - '16'
           - '18'
-    runs-on: ubuntu-latest
+        settings:
+          - host: macos-latest
+            target: 'x86_64-apple-darwin'
+          - host: windows-latest
+            target: 'x86_64-pc-windows-msvc'
+          - host: ubuntu-latest
+            target: 'x86_64-unknown-linux-gnu'
+    runs-on: ${{ matrix.settings.os }}
     steps:
       - uses: actions/checkout@v3
       - name: Setup node
         uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node }}
-          check-latest: true
           cache: yarn
       - name: Download artifacts
         uses: actions/download-artifact@v3
         with:
-          name: bindings-x86_64-unknown-linux-gnu
+          name: bindings-${{ matrix.settings.target }}
           path: .
       - name: List packages
         run: ls -R .
@@ -230,11 +236,15 @@ jobs:
       - name: Install dependencies
         run: yarn install
       - name: Install system components
+        if: matrix.settings.os == 'ubuntu-latest'
         run: |
-          sudo apt-get update -y 
+          sudo apt-get update -y
           sudo apt-get install -y gnome-keyring
       - name: Test bindings
+        if: matrix.settings.os == 'ubuntu-latest'
         run: dbus-run-session -- bash -c "echo -n "test" | gnome-keyring-daemon --unlock && yarn test"
+      - name: Test bindings
+        run: yarn test
 
   publish:
     name: Publish

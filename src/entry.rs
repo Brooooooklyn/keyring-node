@@ -310,4 +310,84 @@ fn cvt(
 }
 
 #[cfg(target_os = "windows")]
-fn find_credentials() {}
+fn find_credentials_(service: &str) -> std::result::Result<Vec<(String, String)>, anyhow::Error> {
+  use byteorder::ByteOrder;
+  use windows::core::PCWSTR;
+  use windows::Win32::Foundation::{GetLastError, ERROR_NOT_FOUND};
+  use windows::Win32::Security::Credentials::{
+    CredEnumerateW, CredFree, CREDENTIALW, CRED_ENUMERATE_FLAGS, CRED_TYPE_DOMAIN_PASSWORD,
+    CRED_TYPE_GENERIC,
+  };
+
+  fn to_wstr(s: &str) -> Vec<u16> {
+    s.encode_utf16().chain(std::iter::once(0)).collect()
+  }
+
+  fn extract_password(credential: &CREDENTIALW) -> std::result::Result<String, anyhow::Error> {
+    // get password blob
+    let blob_pointer: *const u8 = credential.CredentialBlob;
+    let blob_len: usize = credential.CredentialBlobSize as usize;
+    let blob = unsafe { std::slice::from_raw_parts(blob_pointer, blob_len) };
+    // 3rd parties may write credential data with an odd number of bytes,
+    // so we make sure that we don't try to decode those as utf16
+    if blob.len() % 2 != 0 {
+      return Err(anyhow::anyhow!("Not a valid utf16 blob"));
+    }
+    // Now we know this _can_ be a UTF-16 string, so convert it to
+    // as UTF-16 vector and then try to decode it.
+    let mut blob_u16 = vec![0; blob.len() / 2];
+    byteorder::LittleEndian::read_u16_into(blob, &mut blob_u16);
+    String::from_utf16(&blob_u16).map_err(anyhow::Error::from)
+  }
+
+  unsafe fn from_wstr(ws: *const u16) -> String {
+    // null pointer case, return empty string
+    if ws.is_null() {
+      return String::new();
+    }
+    // this code from https://stackoverflow.com/a/48587463/558006
+    let len = (0..).take_while(|&i| *ws.offset(i) != 0).count();
+    let slice = std::slice::from_raw_parts(ws, len);
+    String::from_utf16_lossy(slice)
+  }
+
+  unsafe {
+    let mut count: u32 = 0;
+    let mut p_credentials: *mut *mut CREDENTIALW = std::ptr::null_mut();
+
+    let filter = format!("*.{service}");
+    // Enumerate credentials.
+    let success = CredEnumerateW(
+      PCWSTR::from_raw(to_wstr(&filter).as_ptr()),
+      CRED_ENUMERATE_FLAGS::default(),
+      &mut count,
+      &mut p_credentials,
+    );
+    if !success.as_bool() {
+      let err = GetLastError();
+      CredFree(p_credentials as *mut _);
+      if err == ERROR_NOT_FOUND {
+        return Ok(vec![]);
+      } else {
+        return Err(anyhow::anyhow!("Failed to enumerate credentials {:?}", err));
+      }
+    }
+    let mut credentials_vec: Vec<(String, String)> = vec![];
+    let credentials = std::slice::from_raw_parts(p_credentials, count as usize);
+    for credential in credentials.iter() {
+      if let Some(credential) = credential.as_mut() {
+        if credential.Type != CRED_TYPE_GENERIC && credential.Type != CRED_TYPE_DOMAIN_PASSWORD {
+          continue;
+        }
+
+        let user = from_wstr(credential.UserName.as_ptr().cast());
+        let password = extract_password(credential)?;
+
+        credentials_vec.push((user, password));
+      }
+    }
+
+    CredFree(p_credentials as *mut _);
+    return Ok(credentials_vec);
+  }
+}
