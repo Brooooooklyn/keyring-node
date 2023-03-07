@@ -31,6 +31,9 @@ core-foundation        = "0.9"
 security-framework     = "2.6"
 security-framework-sys = "2.8"
 
+[target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
+secret-service = { version = "3", features = ["rt-async-io-crypto-rust"] }
+
 [build-dependencies]
 napi-build = "2"
 

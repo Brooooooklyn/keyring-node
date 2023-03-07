@@ -391,3 +391,28 @@ fn find_credentials_(service: &str) -> std::result::Result<Vec<(String, String)>
     return Ok(credentials_vec);
   }
 }
+
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+fn find_credentials_(service: &str) -> std::result::Result<Vec<(String, String)>, anyhow::Error> {
+  use std::collections::HashMap;
+
+  use anyhow::Ok;
+  use secret_service::{blocking::SecretService, EncryptionType, SearchItemsResult};
+
+  let mut result = Vec::new();
+  let secret_service = SecretService::connect(EncryptionType::Dh).map_err(anyhow::Error::from)?;
+  let mut attrs = HashMap::with_capacity(1);
+  attrs.insert("service", service);
+  let SearchItemsResult { locked, unlocked } = secret_service
+    .search_items(attrs)
+    .map_err(anyhow::Error::from)?;
+  for item in locked.iter().chain(unlocked.iter()) {
+    let password = item.get_secret().map_err(anyhow::Error::from)?;
+    let password = unsafe { String::from_utf8_unchecked(password) };
+    let attrs = item.get_attributes().map_err(anyhow::Error::from)?;
+    if let Some(user) = attrs.get("username") {
+      result.push((user.clone(), password.to_string()));
+    }
+  }
+  Ok(result)
+}
