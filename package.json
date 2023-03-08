@@ -16,7 +16,8 @@
   "files": [
     "index.d.ts",
     "index.js",
-    "keytar.js"
+    "keytar.js",
+    "keytar.d.ts"
   ],
   "napi": {
     "name": "keyring",
