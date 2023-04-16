@@ -20,7 +20,7 @@ napi-derive = "2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 byteorder = "1"
-windows = { version = "0.44", features = [
+windows = { version = "0.48", features = [
   "Win32",
   "Win32_Security_Credentials",
   "Win32_Foundation",
@@ -28,7 +28,7 @@ windows = { version = "0.44", features = [
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation        = "0.9"
-security-framework     = "2.6"
+security-framework     = "2.8"
 security-framework-sys = "2.8"
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
