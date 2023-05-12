@@ -28,8 +28,8 @@ windows = { version = "0.48", features = [
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation        = "0.9"
-security-framework     = "2.8"
-security-framework-sys = "2.8"
+security-framework     = "2.9"
+security-framework-sys = "2.9"
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
 secret-service = { version = "3", features = ["rt-async-io-crypto-rust"] }
