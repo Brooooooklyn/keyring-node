@@ -43,12 +43,12 @@ impl Entry {
   /// Create an entry for the given target, service, and username.
   ///
   /// The default credential builder is used.
-  pub fn with_target(service: String, username: String, target: String) -> Result<Self> {
+  pub fn with_target(target: String, service: String, username: String) -> Result<Self> {
     #[cfg(target_os = "linux")]
     create_linux_credential_builder()?;
 
     Ok(Self {
-      inner: keyring::Entry::new_with_target(&service, &username, &target)
+      inner: keyring::Entry::new_with_target(&target, &service, &username)
         .map_err(anyhow::Error::from)?,
     })
   }
@@ -110,6 +110,7 @@ pub struct Credential {
 
 pub struct FindCredentials {
   service: String,
+  target: Option<String>,
 }
 
 #[napi]
@@ -120,7 +121,7 @@ impl Task for FindCredentials {
   #[inline]
   fn compute(&mut self) -> Result<Self::Output> {
     Ok(
-      find_credentials_(&self.service)
+      find_credentials_(&self.service, self.target.clone())
         .map_err(anyhow::Error::from)?
         .into_iter()
         .map(|(account, password)| Credential { account, password })
@@ -135,9 +136,9 @@ impl Task for FindCredentials {
 
 #[napi]
 /// find credentials by service name
-pub fn find_credentials(service: String) -> Result<Vec<Credential>> {
+pub fn find_credentials(service: String, target: Option<String>) -> Result<Vec<Credential>> {
   Ok(
-    find_credentials_(&service)
+    find_credentials_(&service, target)
       .map_err(anyhow::Error::from)?
       .into_iter()
       .map(|(account, password)| Credential { account, password })
@@ -149,13 +150,17 @@ pub fn find_credentials(service: String) -> Result<Vec<Credential>> {
 /// find credentials by service name
 pub fn find_credentials_async(
   service: String,
+  target: Option<String>,
   signal: Option<AbortSignal>,
 ) -> AsyncTask<FindCredentials> {
-  AsyncTask::with_optional_signal(FindCredentials { service }, signal)
+  AsyncTask::with_optional_signal(FindCredentials { service, target }, signal)
 }
 
 #[cfg(target_os = "macos")]
-fn find_credentials_(service: &str) -> std::result::Result<Vec<(String, String)>, anyhow::Error> {
+fn find_credentials_(
+  service: &str,
+  _target: Option<String>,
+) -> std::result::Result<Vec<(String, String)>, anyhow::Error> {
   use std::{ffi::c_void, ptr};
 
   use core_foundation::{
@@ -334,7 +339,10 @@ fn cvt(
 }
 
 #[cfg(target_os = "windows")]
-fn find_credentials_(service: &str) -> std::result::Result<Vec<(String, String)>, anyhow::Error> {
+fn find_credentials_(
+  service: &str,
+  target: Option<String>,
+) -> std::result::Result<Vec<(String, String)>, anyhow::Error> {
   use byteorder::ByteOrder;
   use windows::core::PCWSTR;
   use windows::Win32::Foundation::{GetLastError, ERROR_NOT_FOUND};
@@ -379,7 +387,7 @@ fn find_credentials_(service: &str) -> std::result::Result<Vec<(String, String)>
     let mut count: u32 = 0;
     let mut p_credentials: *mut *mut CREDENTIALW = std::ptr::null_mut();
 
-    let filter = format!("*.{service}");
+    let filter = target.unwrap_or_else(|| format!("*.{service}"));
     // Enumerate credentials.
     let success = CredEnumerateW(
       PCWSTR::from_raw(to_wstr(&filter).as_ptr()),
@@ -417,7 +425,10 @@ fn find_credentials_(service: &str) -> std::result::Result<Vec<(String, String)>
 }
 
 #[cfg(any(target_os = "linux", target_os = "freebsd"))]
-fn find_credentials_(service: &str) -> std::result::Result<Vec<(String, String)>, anyhow::Error> {
+fn find_credentials_(
+  service: &str,
+  _target: Option<String>,
+) -> std::result::Result<Vec<(String, String)>, anyhow::Error> {
   use std::collections::HashMap;
 
   use anyhow::Ok;

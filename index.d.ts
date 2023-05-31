@@ -8,9 +8,9 @@ export interface Credential {
   password: string
 }
 /** find credentials by service name */
-export function findCredentials(service: string): Array<Credential>
+export function findCredentials(service: string, target?: string | undefined | null): Array<Credential>
 /** find credentials by service name */
-export function findCredentialsAsync(service: string, signal?: AbortSignal | undefined | null): Promise<Array<Credential>>
+export function findCredentialsAsync(service: string, target?: string | undefined | null, signal?: AbortSignal | undefined | null): Promise<Array<Credential>>
 export class AsyncEntry {
   /**
    * Create an entry for the given service and username.
@@ -23,7 +23,7 @@ export class AsyncEntry {
    *
    * The default credential builder is used.
    */
-  static withTarget(service: string, username: string, target: string): AsyncEntry
+  static withTarget(target: string, service: string, username: string): AsyncEntry
   /**
    * Set the password for this entry.
    *
@@ -71,7 +71,7 @@ export class Entry {
    *
    * The default credential builder is used.
    */
-  static withTarget(service: string, username: string, target: string): Entry
+  static withTarget(target: string, service: string, username: string): Entry
   /**
    * Set the password for this entry.
    *
