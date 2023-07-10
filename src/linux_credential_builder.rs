@@ -17,7 +17,10 @@ impl LinuxCredentialBuilder {
   pub fn new() -> Result<Self, Box<dyn Error>> {
     let ss = SsCredential::new_with_target(None, "test", "user")?;
 
-    let missing = matches!(ss.map_matching_items(|_item| Ok(()), false), Err(keyring::Error::PlatformFailure(_x)));
+    let missing = matches!(
+      ss.map_matching_items(|_item| Ok(()), false),
+      Err(keyring::Error::PlatformFailure(_x))
+    );
 
     Ok(Self {
       secret_service_missing: missing,
