@@ -1,9 +1,27 @@
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
+#[cfg(target_os = "linux")]
+use crate::linux_credential_builder::LinuxCredentialBuilder;
+
 #[napi]
 pub struct Entry {
   inner: keyring::Entry,
+}
+
+#[cfg(target_os = "linux")]
+fn create_linux_credential_builder() -> anyhow::Result<()> {
+  let backend_result = LinuxCredentialBuilder::new();
+  match backend_result {
+    Ok(backend) => {
+      keyring::set_default_credential_builder(Box::new(backend));
+      Ok(())
+    }
+    Err(e) => Err(anyhow::Error::msg(format!(
+      "Failed to create LinuxCredentialBuilder: {}",
+      e
+    ))),
+  }
 }
 
 #[napi]
@@ -13,6 +31,9 @@ impl Entry {
   ///
   /// The default credential builder is used.
   pub fn new(service: String, username: String) -> Result<Self> {
+    #[cfg(target_os = "linux")]
+    create_linux_credential_builder()?;
+
     Ok(Self {
       inner: keyring::Entry::new(&service, &username).map_err(anyhow::Error::from)?,
     })
@@ -23,6 +44,9 @@ impl Entry {
   ///
   /// The default credential builder is used.
   pub fn with_target(service: String, username: String, target: String) -> Result<Self> {
+    #[cfg(target_os = "linux")]
+    create_linux_credential_builder()?;
+
     Ok(Self {
       inner: keyring::Entry::new_with_target(&service, &username, &target)
         .map_err(anyhow::Error::from)?,
