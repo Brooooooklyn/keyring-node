@@ -208,7 +208,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ['14', '16', '18']
+        node: ['16', '18']
         settings:
           - host: macos-latest
             target: 'x86_64-apple-darwin'
@@ -238,10 +238,11 @@ jobs:
         if: matrix.settings.host == 'ubuntu-latest'
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y gnome-keyring
+          sudo apt-get install -y gnome-keyring dbus dbus-x11
       - name: Test bindings
         if: matrix.settings.host == 'ubuntu-latest'
-        run: dbus-run-session -- bash -c "echo -n "test" | gnome-keyring-daemon --unlock && yarn test"
+        run: |
+          dbus-run-session -- bash -c "rm -f $HOME/.local/share/keyrings/* && echo -n "test" | gnome-keyring-daemon --unlock && yarn test"
       - name: Test bindings
         if: matrix.settings.host != 'ubuntu-latest'
         run: yarn test

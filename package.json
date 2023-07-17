@@ -52,7 +52,7 @@
     "format:rs": "cargo fmt",
     "lint": "eslint . -c ./.eslintrc.yml",
     "prepublishOnly": "napi prepublish -t npm",
-    "test": "ava",
+    "test": "ava -s",
     "version": "napi version"
   },
   "devDependencies": {
@@ -60,6 +60,7 @@
     "@swc-node/register": "^1.6.6",
     "@swc/core": "^1.3.69",
     "@taplo/cli": "^0.5.2",
+    "@types/node": "^20.4.2",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "ava": "^5.3.1",

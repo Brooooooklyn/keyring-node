@@ -24,10 +24,10 @@ impl AsyncEntry {
   /// Create an entry for the given target, service, and username.
   ///
   /// The default credential builder is used.
-  pub fn with_target(service: String, username: String, target: String) -> Result<Self> {
+  pub fn with_target(target: String, service: String, username: String) -> Result<Self> {
     Ok(Self {
       inner: Arc::new(
-        keyring::Entry::new_with_target(&service, &username, &target)
+        keyring::Entry::new_with_target(&target, &service, &username)
           .map_err(anyhow::Error::from)?,
       ),
     })
