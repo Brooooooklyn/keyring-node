@@ -345,7 +345,7 @@ fn find_credentials_(
 ) -> std::result::Result<Vec<(String, String)>, anyhow::Error> {
   use byteorder::ByteOrder;
   use windows::core::PCWSTR;
-  use windows::Win32::Foundation::{GetLastError, ERROR_NOT_FOUND};
+  use windows::Win32::Foundation::ERROR_NOT_FOUND;
   use windows::Win32::Security::Credentials::{
     CredEnumerateW, CredFree, CREDENTIALW, CRED_ENUMERATE_FLAGS, CRED_TYPE_DOMAIN_PASSWORD,
     CRED_TYPE_GENERIC,
@@ -389,16 +389,14 @@ fn find_credentials_(
 
     let filter = target.unwrap_or_else(|| format!("*.{service}"));
     // Enumerate credentials.
-    let success = CredEnumerateW(
+    if let Err(err) = CredEnumerateW(
       PCWSTR::from_raw(to_wstr(&filter).as_ptr()),
       CRED_ENUMERATE_FLAGS::default(),
       &mut count,
       &mut p_credentials,
-    );
-    if !success.as_bool() {
-      let err = GetLastError();
-      CredFree(p_credentials as *mut _);
-      if err == ERROR_NOT_FOUND {
+    ) {
+      CredFree(p_credentials.cast());
+      if err == ERROR_NOT_FOUND.to_hresult().into() {
         return Ok(vec![]);
       } else {
         return Err(anyhow::anyhow!("Failed to enumerate credentials {:?}", err));
