@@ -90,7 +90,7 @@ jobs:
     name: stable - ${{ matrix.settings.target }} - node@18
     runs-on: ${{ matrix.settings.host }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4
       - name: Setup node
         uses: actions/setup-node@v3
         if: ${{ !matrix.settings.docker }}
@@ -157,7 +157,7 @@ jobs:
     runs-on: macos-12
     name: Build FreeBSD
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4
       - name: Build
         id: build
         uses: vmactions/freebsd-vm@v0
@@ -218,7 +218,7 @@ jobs:
             target: 'x86_64-unknown-linux-gnu'
     runs-on: ${{ matrix.settings.host }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4
       - name: Setup node
         uses: actions/setup-node@v3
         with:
@@ -254,7 +254,7 @@ jobs:
       - test
       - build-freebsd
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4
       - name: Setup node
         uses: actions/setup-node@v3
         with:
