@@ -1,0 +1,32 @@
+{
+  "name": "@napi-rs/keyring-android-arm-eabi",
+  "version": "1.1.4",
+  "os": [
+    "android"
+  ],
+  "cpu": [
+    "arm"
+  ],
+  "main": "keyring.android-arm-eabi.node",
+  "files": [
+    "keyring.android-arm-eabi.node"
+  ],
+  "description": "https://github.com/hwchen/keyring-rs Node.js binding via https://napi.rs",
+  "keywords": [
+    "napi-rs",
+    "NAPI",
+    "N-API",
+    "Rust",
+    "node-addon",
+    "node-addon-api"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">= 10"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "repository": "https://github.com/Brooooooklyn/keyring-node"
+}
