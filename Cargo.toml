@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 anyhow = "1"
-keyring = "2"
+keyring = "3"
 napi = { version = "2", default-features = false, features = [
   "napi3",
   "error_anyhow",
