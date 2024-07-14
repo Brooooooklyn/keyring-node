@@ -84,7 +84,7 @@ impl Entry {
   }
 
   #[napi]
-  /// Delete the password for this entry.
+  /// Delete the underlying credential for this entry.
   ///
   /// Returns a [NoEntry](Error::NoEntry) error if there isn't one.
   ///
@@ -93,10 +93,14 @@ impl Entry {
   /// that matches this entry.  This can only happen
   /// on some platforms, and then only if a third-party
   /// application wrote the ambiguous credential.
-  pub fn delete_password(&self) -> bool {
+  ///
+  /// Note: This does _not_ affect the lifetime of the [Entry]
+  /// structure, which is controlled by Rust.  It only
+  /// affects the underlying credential store.
+  pub fn delete_credential(&self) -> bool {
     self
       .inner
-      .delete_password()
+      .delete_credential()
       .map_err(anyhow::Error::from)
       .is_ok()
   }

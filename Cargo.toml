@@ -11,7 +11,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 anyhow = "1"
-keyring = "2"
 napi = { version = "2", default-features = false, features = [
   "napi3",
   "error_anyhow",
@@ -20,6 +19,7 @@ napi-derive = "2"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 byteorder = "1"
+keyring = "3"
 windows = { version = "0.58", features = [
   "Win32",
   "Win32_Security_Credentials",
@@ -28,16 +28,22 @@ windows = { version = "0.58", features = [
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation        = "0.10"
+keyring                = { version = "3", features = ["apple-native"] }
 security-framework     = "3.0"
 security-framework-sys = "2.12"
 
-[target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
+[target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))'.dependencies]
+keyring = { version = "3", features = [
+  "linux-native",
+  "sync-secret-service",
+  "vendored",
+] }
 secret-service = { version = "4", features = ["rt-async-io-crypto-rust"] }
 
 [build-dependencies]
 napi-build = "2"
 
 [profile.release]
-lto       = "thin"
-opt-level = "z"
-strip     = "symbols"
+codegen-units = 1
+lto           = true
+strip         = "symbols"
