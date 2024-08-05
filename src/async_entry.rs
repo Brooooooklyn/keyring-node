@@ -76,7 +76,7 @@ impl AsyncEntry {
   }
 
   #[napi(ts_return_type = "Promise<boolean>")]
-  /// Delete the password for this entry.
+  /// Delete the underlying credential for this entry.
   ///
   /// Returns a [NoEntry](Error::NoEntry) error if there isn't one.
   ///
@@ -85,11 +85,15 @@ impl AsyncEntry {
   /// that matches this entry.  This can only happen
   /// on some platforms, and then only if a third-party
   /// application wrote the ambiguous credential.
-  pub fn delete_password(&self, signal: Option<AbortSignal>) -> AsyncTask<EntryTask> {
+  ///
+  /// Note: This does _not_ affect the lifetime of the [Entry]
+  /// structure, which is controlled by Rust.  It only
+  /// affects the underlying credential store.
+  pub fn delete_credential(&self, signal: Option<AbortSignal>) -> AsyncTask<EntryTask> {
     AsyncTask::with_optional_signal(
       EntryTask {
         inner: self.inner.clone(),
-        kind: TaskKind::DeletePassword,
+        kind: TaskKind::DeleteCredential,
       },
       signal,
     )
@@ -100,7 +104,7 @@ impl AsyncEntry {
 enum TaskKind {
   SetPassword(String),
   GetPassword,
-  DeletePassword,
+  DeleteCredential,
 }
 
 pub struct EntryTask {
@@ -116,7 +120,7 @@ impl Task for EntryTask {
   fn compute(&mut self) -> Result<Self::Output> {
     match self.kind {
       TaskKind::GetPassword => Ok(self.inner.get_password().ok().map(Either::A)),
-      TaskKind::DeletePassword => Ok(Some(Either::B(self.inner.delete_password().is_ok()))),
+      TaskKind::DeleteCredential => Ok(Some(Either::B(self.inner.delete_credential().is_ok()))),
       TaskKind::SetPassword(ref password) => {
         self
           .inner
