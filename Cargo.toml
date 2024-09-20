@@ -28,7 +28,7 @@ windows = { version = "0.58", features = [
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation        = "0.9"
-security-framework     = "2.9"
+security-framework     = "3.0"
 security-framework-sys = "2.9"
 
 [target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
