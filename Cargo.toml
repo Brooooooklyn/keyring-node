@@ -32,12 +32,16 @@ keyring                = { version = "3", features = ["apple-native"] }
 security-framework     = "3.0"
 security-framework-sys = "2.12"
 
-[target.'cfg(any(target_os = "linux", target_os = "freebsd", target_os = "openbsd"))'.dependencies]
+[target.'cfg(target_os = "linux")'.dependencies]
 keyring = { version = "3", features = [
   "linux-native",
   "sync-secret-service",
   "vendored",
 ] }
+secret-service = { version = "4", features = ["rt-async-io-crypto-rust"] }
+
+[target.'cfg(any(target_os = "freebsd", target_os = "openbsd"))'.dependencies]
+keyring        = { version = "3", features = ["sync-secret-service", "vendored"] }
 secret-service = { version = "4", features = ["rt-async-io-crypto-rust"] }
 
 [build-dependencies]

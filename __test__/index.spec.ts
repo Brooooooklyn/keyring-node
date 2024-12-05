@@ -15,7 +15,7 @@ test('Should create and get password back', (t) => {
   const [{ password: pass, account }] = findCredentials(testService)
   t.is(pass, testPassword)
   t.is(account, testUser)
-  t.notThrows(() => entry.deletePassword())
+  t.notThrows(() => entry.deleteCredential())
 })
 
 test('Should create and get password back async', async (t) => {
@@ -25,7 +25,7 @@ test('Should create and get password back async', async (t) => {
   const [{ password: pass, account }] = await findCredentialsAsync(testService)
   t.is(pass, testPassword)
   t.is(account, testUser)
-  await t.notThrowsAsync(() => entry.deletePassword())
+  await t.notThrowsAsync(() => entry.deleteCredential())
 })
 
 let testTarget: string | undefined
@@ -57,7 +57,7 @@ if (testTarget && !(process.env.CI && (platform === 'linux' || platform === 'fre
     const [{ password: pass, account }] = findCredentials(testService, testTarget!)
     t.is(pass, testPassword)
     t.is(account, testUser)
-    t.notThrows(() => entry.deletePassword())
+    t.notThrows(() => entry.deleteCredential())
   })
 
   test('AsyncEntry.withTarget() should use valid target', async (t) => {
@@ -67,7 +67,7 @@ if (testTarget && !(process.env.CI && (platform === 'linux' || platform === 'fre
     const [{ password: pass, account }] = await findCredentialsAsync(testService, testTarget!)
     t.is(pass, testPassword)
     t.is(account, testUser)
-    await t.notThrowsAsync(() => entry.deletePassword())
+    await t.notThrowsAsync(() => entry.deleteCredential())
   })
 } else {
   test.skip(`Skip testing Entry.withTarget() because of non-supported operating system: ${platform}`, (t) => {

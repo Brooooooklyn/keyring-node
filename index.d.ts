@@ -112,11 +112,8 @@ export interface Credential {
 }
 
 /** find credentials by service name */
-export function findCredentials(service: string, target?: string | undefined | null): Array<Credential>
+export declare function findCredentials(service: string, target?: string | undefined | null): Array<Credential>
 
 /** find credentials by service name */
-export function findCredentialsAsync(
-  service: string,
-  target?: string | undefined | null,
-  signal?: AbortSignal | undefined | null,
-): Promise<Array<Credential>>
+export declare function findCredentialsAsync(service: string, target?: string | undefined | null, signal?: AbortSignal | undefined | null): Promise<Array<Credential>>
+
