@@ -41,7 +41,7 @@ keyring = { version = "3", features = [
 secret-service = { version = "4", features = ["rt-async-io-crypto-rust"] }
 
 [target.'cfg(any(target_os = "freebsd", target_os = "openbsd"))'.dependencies]
-keyring        = { version = "3", features = ["sync-secret-service", "vendored"] }
+keyring        = { version = "3", features = ["async-secret-service", "crypto-rust"] }
 secret-service = { version = "4", features = ["rt-async-io-crypto-rust"] }
 
 [build-dependencies]
