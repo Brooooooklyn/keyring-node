@@ -20,7 +20,7 @@ napi-derive = "2"
 [target.'cfg(target_os = "windows")'.dependencies]
 byteorder = "1"
 keyring = { version = "3", features = ["windows-native"] }
-windows = { version = "0.58", features = [
+windows = { version = "0.61", features = [
   "Win32",
   "Win32_Security_Credentials",
   "Win32_Foundation",
