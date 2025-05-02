@@ -187,7 +187,7 @@ __metadata:
     chalk: "npm:^5.3.0"
     husky: "npm:^9.0.0"
     lint-staged: "npm:^15.2.0"
-    npm-run-all2: "npm:^7.0.0"
+    npm-run-all2: "npm:^8.0.0"
     oxlint: "npm:^0.15.0"
     prettier: "npm:^3.1.1"
     typescript: "npm:^5.3.3"
@@ -1737,6 +1737,17 @@ __metadata:
   languageName: node
   linkType: hard
 
+"cross-spawn@npm:^7.0.6":
+  version: 7.0.6
+  resolution: "cross-spawn@npm:7.0.6"
+  dependencies:
+    path-key: "npm:^3.1.0"
+    shebang-command: "npm:^2.0.0"
+    which: "npm:^2.0.1"
+  checksum: 10c0/053ea8b2135caff68a9e81470e845613e374e7309a47731e81639de3eaeb90c3d01af0e0b44d2ab9d50b43467223b88567dfeb3262db942dc063b9976718ffc1
+  languageName: node
+  linkType: hard
+
 "currently-unhandled@npm:^0.4.1":
   version: 0.4.1
   resolution: "currently-unhandled@npm:0.4.1"
@@ -3115,12 +3126,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"npm-run-all2@npm:^7.0.0":
-  version: 7.0.0
-  resolution: "npm-run-all2@npm:7.0.0"
+"npm-run-all2@npm:^8.0.0":
+  version: 8.0.1
+  resolution: "npm-run-all2@npm:8.0.1"
   dependencies:
     ansi-styles: "npm:^6.2.1"
-    cross-spawn: "npm:^7.0.3"
+    cross-spawn: "npm:^7.0.6"
     memorystream: "npm:^0.3.1"
     minimatch: "npm:^10.0.1"
     pidtree: "npm:^0.6.0"
@@ -3132,7 +3143,7 @@ __metadata:
     npm-run-all2: bin/npm-run-all/index.js
     run-p: bin/run-p/index.js
     run-s: bin/run-s/index.js
-  checksum: 10c0/ee09d88820e67d61497b3058a179e4d13ff9518242546d0114bdb6e657e3ba8427e672ce99abf3b680ac4433fa79639a47897b232a90f465d9a6eea5744b56bc
+  checksum: 10c0/e97980a66b64e51f57f57804a8d93e4fb0845867db7a558db224c480a987c9b1e9a0d148d01cad351d4f53077c7f93f56bba5625938d213ebb3f652c1d615d86
   languageName: node
   linkType: hard
 
