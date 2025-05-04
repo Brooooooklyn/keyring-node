@@ -125,8 +125,7 @@ impl Task for FindCredentials {
   #[inline]
   fn compute(&mut self) -> Result<Self::Output> {
     Ok(
-      find_credentials_(&self.service, self.target.clone())
-        .map_err(anyhow::Error::from)?
+      find_credentials_(&self.service, self.target.clone())?
         .into_iter()
         .map(|(account, password)| Credential { account, password })
         .collect(),
@@ -142,8 +141,7 @@ impl Task for FindCredentials {
 /// find credentials by service name
 pub fn find_credentials(service: String, target: Option<String>) -> Result<Vec<Credential>> {
   Ok(
-    find_credentials_(&service, target)
-      .map_err(anyhow::Error::from)?
+    find_credentials_(&service, target)?
       .into_iter()
       .map(|(account, password)| Credential { account, password })
       .collect(),
@@ -295,31 +293,31 @@ unsafe fn get_item(
     key::SecKey,
   };
 
-  let type_id = CFGetTypeID(item);
+  let type_id = unsafe { CFGetTypeID(item) };
 
   if type_id == CFData::type_id() {
-    let data = CFData::wrap_under_get_rule(item as *mut _);
+    let data = unsafe { CFData::wrap_under_get_rule(item as *mut _) };
     let mut buf = Vec::new();
     buf.extend_from_slice(data.bytes());
     return SearchResult::Data(buf);
   }
 
   if type_id == CFDictionary::<*const u8, *const u8>::type_id() {
-    return SearchResult::Dict(CFDictionary::wrap_under_get_rule(item as *mut _));
+    return SearchResult::Dict(unsafe { CFDictionary::wrap_under_get_rule(item as *mut _) });
   }
 
   if type_id == SecKeychainItem::type_id() {
-    return SearchResult::Ref(Reference::KeychainItem(
-      SecKeychainItem::wrap_under_get_rule(item as *mut _),
-    ));
+    return SearchResult::Ref(Reference::KeychainItem(unsafe {
+      SecKeychainItem::wrap_under_get_rule(item as *mut _)
+    }));
   }
 
   let reference = if type_id == SecCertificate::type_id() {
-    Reference::Certificate(SecCertificate::wrap_under_get_rule(item as *mut _))
+    Reference::Certificate(unsafe { SecCertificate::wrap_under_get_rule(item as *mut _) })
   } else if type_id == SecKey::type_id() {
-    Reference::Key(SecKey::wrap_under_get_rule(item as *mut _))
+    Reference::Key(unsafe { SecKey::wrap_under_get_rule(item as *mut _) })
   } else if type_id == SecIdentity::type_id() {
-    Reference::Identity(SecIdentity::wrap_under_get_rule(item as *mut _))
+    Reference::Identity(unsafe { SecIdentity::wrap_under_get_rule(item as *mut _) })
   } else {
     // panic!("Got bad type from SecItemCopyMatching: {}", type_id);
     return SearchResult::Other;
@@ -348,12 +346,12 @@ fn find_credentials_(
   target: Option<String>,
 ) -> std::result::Result<Vec<(String, String)>, anyhow::Error> {
   use byteorder::ByteOrder;
-  use windows::core::PCWSTR;
   use windows::Win32::Foundation::ERROR_NOT_FOUND;
   use windows::Win32::Security::Credentials::{
-    CredEnumerateW, CredFree, CREDENTIALW, CRED_ENUMERATE_FLAGS, CRED_TYPE_DOMAIN_PASSWORD,
-    CRED_TYPE_GENERIC,
+    CRED_ENUMERATE_FLAGS, CRED_TYPE_DOMAIN_PASSWORD, CRED_TYPE_GENERIC, CREDENTIALW,
+    CredEnumerateW, CredFree,
   };
+  use windows::core::PCWSTR;
 
   fn to_wstr(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
@@ -382,8 +380,8 @@ fn find_credentials_(
       return String::new();
     }
     // this code from https://stackoverflow.com/a/48587463/558006
-    let len = (0..).take_while(|&i| *ws.offset(i) != 0).count();
-    let slice = std::slice::from_raw_parts(ws, len);
+    let len = (0..).take_while(|&i| unsafe { *ws.offset(i) } != 0).count();
+    let slice = unsafe { std::slice::from_raw_parts(ws, len) };
     String::from_utf16_lossy(slice)
   }
 
@@ -395,7 +393,7 @@ fn find_credentials_(
     // Enumerate credentials.
     if let Err(err) = CredEnumerateW(
       PCWSTR::from_raw(to_wstr(&filter).as_ptr()),
-      CRED_ENUMERATE_FLAGS::default(),
+      Some(CRED_ENUMERATE_FLAGS::default()),
       &mut count,
       &mut p_credentials,
     ) {
@@ -434,7 +432,7 @@ fn find_credentials_(
   use std::collections::HashMap;
 
   use anyhow::Ok;
-  use secret_service::{blocking::SecretService, EncryptionType, SearchItemsResult};
+  use secret_service::{EncryptionType, SearchItemsResult, blocking::SecretService};
 
   let mut result = Vec::new();
   let secret_service = SecretService::connect(EncryptionType::Dh).map_err(anyhow::Error::from)?;
