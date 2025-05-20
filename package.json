@@ -57,7 +57,7 @@
     "version": "napi version"
   },
   "devDependencies": {
-    "@napi-rs/cli": "^3.0.0-alpha.78",
+    "@napi-rs/cli": "^3.0.0-alpha.80",
     "@oxc-node/core": "^0.0.27",
     "@taplo/cli": "^0.7.0",
     "@types/node": "^22.15.3",

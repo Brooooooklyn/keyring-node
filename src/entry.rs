@@ -104,6 +104,12 @@ impl Entry {
       .map_err(anyhow::Error::from)
       .is_ok()
   }
+
+  #[napi]
+  /// Alias for `deleteCredential`
+  pub fn delete_password(&self) -> bool {
+    self.delete_credential()
+  }
 }
 
 #[napi(object)]
