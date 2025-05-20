@@ -98,6 +98,12 @@ impl AsyncEntry {
       signal,
     )
   }
+
+  #[napi]
+  /// Alias for `deleteCredential`
+  pub fn delete_password(&self, signal: Option<AbortSignal>) -> AsyncTask<EntryTask> {
+    self.delete_credential(signal)
+  }
 }
 
 #[allow(clippy::enum_variant_names)]
