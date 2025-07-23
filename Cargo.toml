@@ -11,8 +11,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 anyhow      = "1"
-napi        = { version = "3.0.0-beta.1", default-features = false, features = ["napi3", "error_anyhow"] }
-napi-derive = "3.0.0-beta.1"
+napi        = { version = "3.0.0", default-features = false, features = ["napi3", "error_anyhow"] }
+napi-derive = "3.0.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 byteorder = "1"

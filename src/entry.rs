@@ -18,8 +18,7 @@ fn create_linux_credential_builder() -> anyhow::Result<()> {
       Ok(())
     }
     Err(e) => Err(anyhow::Error::msg(format!(
-      "Failed to create LinuxCredentialBuilder: {}",
-      e
+      "Failed to create LinuxCredentialBuilder: {e}",
     ))),
   }
 }
