@@ -159,11 +159,6 @@ export interface Credential {
   password: string
 }
 
-export type EntryResult =
-  | { type: 'Password', field0: string }
-  | { type: 'Secret', field0: Array<number> }
-  | { type: 'Boolean', field0: boolean }
-
 /** find credentials by service name */
 export declare function findCredentials(service: string, target?: string | undefined | null): Array<Credential>
 

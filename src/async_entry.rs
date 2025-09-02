@@ -63,11 +63,7 @@ impl AsyncEntry {
   /// that matches this entry.  This can only happen
   /// on some platforms, and then only if a third-party
   /// application wrote the ambiguous credential.
-  pub fn set_secret(
-    &self,
-    secret: &[u8],
-    signal: Option<AbortSignal>,
-  ) -> AsyncTask<EntryTask> {
+  pub fn set_secret(&self, secret: &[u8], signal: Option<AbortSignal>) -> AsyncTask<EntryTask> {
     AsyncTask::with_optional_signal(
       EntryTask {
         inner: self.inner.clone(),
@@ -87,11 +83,10 @@ impl AsyncEntry {
   /// that matches this entry.  This can only happen
   /// on some platforms, and then only if a third-party
   /// application wrote the ambiguous credential.
-  pub fn get_password(&self, signal: Option<AbortSignal>) -> AsyncTask<EntryTask> {
+  pub fn get_password(&self, signal: Option<AbortSignal>) -> AsyncTask<PasswordTask> {
     AsyncTask::with_optional_signal(
-      EntryTask {
+      PasswordTask {
         inner: self.inner.clone(),
-        kind: TaskKind::GetPassword,
       },
       signal,
     )
@@ -107,11 +102,10 @@ impl AsyncEntry {
   /// that matches this entry.  This can only happen
   /// on some platforms, and then only if a third-party
   /// application wrote the ambiguous credential.
-  pub fn get_secret(&self, signal: Option<AbortSignal>) -> AsyncTask<EntryTask> {
+  pub fn get_secret(&self, signal: Option<AbortSignal>) -> AsyncTask<SecretTask> {
     AsyncTask::with_optional_signal(
-      EntryTask {
+      SecretTask {
         inner: self.inner.clone(),
-        kind: TaskKind::GetSecret,
       },
       signal,
     )
@@ -152,8 +146,6 @@ impl AsyncEntry {
 enum TaskKind {
   SetPassword(String),
   SetSecret(Vec<u8>),
-  GetPassword,
-  GetSecret,
   DeleteCredential,
 }
 
@@ -162,23 +154,53 @@ pub struct EntryTask {
   kind: TaskKind,
 }
 
-#[napi]
-pub enum EntryResult {
-  Password(String),
-  Secret(Vec<u8>),
-  Boolean(bool),
+// Password task
+pub struct PasswordTask {
+  inner: Arc<keyring::Entry>,
 }
 
 #[napi]
+impl Task for PasswordTask {
+  type Output = Option<String>;
+  type JsValue = Option<String>;
+
+  fn compute(&mut self) -> Result<Self::Output> {
+    Ok(self.inner.get_password().ok())
+  }
+
+  fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {
+    Ok(output)
+  }
+}
+
+// Secret task
+pub struct SecretTask {
+  inner: Arc<keyring::Entry>,
+}
+
+#[napi]
+impl Task for SecretTask {
+  type Output = Option<Vec<u8>>;
+  type JsValue = Option<Vec<u8>>;
+
+  fn compute(&mut self) -> Result<Self::Output> {
+    Ok(self.inner.get_secret().ok())
+  }
+
+  fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {
+    Ok(output)
+  }
+}
+
+// Generic task for operations that don't return values or return booleans
+#[napi]
 impl Task for EntryTask {
-  type Output = Option<EntryResult>;
-  type JsValue = Option<EntryResult>;
+  type Output = Option<bool>;
+  type JsValue = Option<bool>;
 
   fn compute(&mut self) -> Result<Self::Output> {
     match self.kind {
-      TaskKind::GetPassword => Ok(self.inner.get_password().ok().map(EntryResult::Password)),
-      TaskKind::GetSecret => Ok(self.inner.get_secret().ok().map(EntryResult::Secret)),
-      TaskKind::DeleteCredential => Ok(Some(EntryResult::Boolean(self.inner.delete_credential().is_ok()))),
+      TaskKind::DeleteCredential => Ok(Some(self.inner.delete_credential().is_ok())),
       TaskKind::SetPassword(ref password) => {
         self
           .inner
@@ -187,10 +209,7 @@ impl Task for EntryTask {
         Ok(None)
       }
       TaskKind::SetSecret(ref secret) => {
-        self
-          .inner
-          .set_secret(secret)
-          .map_err(anyhow::Error::from)?;
+        self.inner.set_secret(secret).map_err(anyhow::Error::from)?;
         Ok(None)
       }
     }

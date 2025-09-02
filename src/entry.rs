@@ -77,10 +77,7 @@ impl Entry {
   /// on some platforms, and then only if a third-party
   /// application wrote the ambiguous credential.
   pub fn set_secret(&self, secret: &[u8]) -> Result<()> {
-    self
-      .inner
-      .set_secret(secret)
-      .map_err(anyhow::Error::from)?;
+    self.inner.set_secret(secret).map_err(anyhow::Error::from)?;
     Ok(())
   }
 
