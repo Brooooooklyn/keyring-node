@@ -24,6 +24,16 @@ export declare class AsyncEntry {
    */
   setPassword(password: string, signal?: AbortSignal | undefined | null): Promise<void>
   /**
+   * Set the secret for this entry.
+   *
+   * Can return an [Ambiguous](Error::Ambiguous) error
+   * if there is more than one platform credential
+   * that matches this entry.  This can only happen
+   * on some platforms, and then only if a third-party
+   * application wrote the ambiguous credential.
+   */
+  setSecret(secret: Uint8Array, signal?: AbortSignal | undefined | null): Promise<void>
+  /**
    * Retrieve the password saved for this entry.
    *
    * Returns a [NoEntry](Error::NoEntry) error if there isn't one.
@@ -35,6 +45,18 @@ export declare class AsyncEntry {
    * application wrote the ambiguous credential.
    */
   getPassword(signal?: AbortSignal | undefined | null): Promise<string | undefined>
+  /**
+   * Retrieve the secret saved for this entry.
+   *
+   * Returns a [NoEntry](Error::NoEntry) error if there isn't one.
+   *
+   * Can return an [Ambiguous](Error::Ambiguous) error
+   * if there is more than one platform credential
+   * that matches this entry.  This can only happen
+   * on some platforms, and then only if a third-party
+   * application wrote the ambiguous credential.
+   */
+  getSecret(signal?: AbortSignal | undefined | null): Promise<Uint8Array | undefined>
   /**
    * Delete the underlying credential for this entry.
    *
@@ -79,6 +101,16 @@ export declare class Entry {
    */
   setPassword(password: string): void
   /**
+   * Set the secret for this entry.
+   *
+   * Can return an [Ambiguous](Error::Ambiguous) error
+   * if there is more than one platform credential
+   * that matches this entry.  This can only happen
+   * on some platforms, and then only if a third-party
+   * application wrote the ambiguous credential.
+   */
+  setSecret(secret: Uint8Array): void
+  /**
    * Retrieve the password saved for this entry.
    *
    * Returns a [NoEntry](Error::NoEntry) error if there isn't one.
@@ -90,6 +122,18 @@ export declare class Entry {
    * application wrote the ambiguous credential.
    */
   getPassword(): string | null
+  /**
+   * Retrieve the secret saved for this entry.
+   *
+   * Returns a [NoEntry](Error::NoEntry) error if there isn't one.
+   *
+   * Can return an [Ambiguous](Error::Ambiguous) error
+   * if there is more than one platform credential
+   * that matches this entry.  This can only happen
+   * on some platforms, and then only if a third-party
+   * application wrote the ambiguous credential.
+   */
+  getSecret(): Array<number> | null
   /**
    * Delete the underlying credential for this entry.
    *
@@ -114,6 +158,11 @@ export interface Credential {
   account: string
   password: string
 }
+
+export type EntryResult =
+  | { type: 'Password', field0: string }
+  | { type: 'Secret', field0: Array<number> }
+  | { type: 'Boolean', field0: boolean }
 
 /** find credentials by service name */
 export declare function findCredentials(service: string, target?: string | undefined | null): Array<Credential>

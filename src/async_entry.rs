@@ -55,6 +55,28 @@ impl AsyncEntry {
     )
   }
 
+  #[napi(ts_return_type = "Promise<void>")]
+  /// Set the secret for this entry.
+  ///
+  /// Can return an [Ambiguous](Error::Ambiguous) error
+  /// if there is more than one platform credential
+  /// that matches this entry.  This can only happen
+  /// on some platforms, and then only if a third-party
+  /// application wrote the ambiguous credential.
+  pub fn set_secret(
+    &self,
+    secret: &[u8],
+    signal: Option<AbortSignal>,
+  ) -> AsyncTask<EntryTask> {
+    AsyncTask::with_optional_signal(
+      EntryTask {
+        inner: self.inner.clone(),
+        kind: TaskKind::SetSecret(secret.to_vec()),
+      },
+      signal,
+    )
+  }
+
   #[napi(ts_return_type = "Promise<string | undefined>")]
   /// Retrieve the password saved for this entry.
   ///
@@ -70,6 +92,26 @@ impl AsyncEntry {
       EntryTask {
         inner: self.inner.clone(),
         kind: TaskKind::GetPassword,
+      },
+      signal,
+    )
+  }
+
+  #[napi(ts_return_type = "Promise<Uint8Array | undefined>")]
+  /// Retrieve the secret saved for this entry.
+  ///
+  /// Returns a [NoEntry](Error::NoEntry) error if there isn't one.
+  ///
+  /// Can return an [Ambiguous](Error::Ambiguous) error
+  /// if there is more than one platform credential
+  /// that matches this entry.  This can only happen
+  /// on some platforms, and then only if a third-party
+  /// application wrote the ambiguous credential.
+  pub fn get_secret(&self, signal: Option<AbortSignal>) -> AsyncTask<EntryTask> {
+    AsyncTask::with_optional_signal(
+      EntryTask {
+        inner: self.inner.clone(),
+        kind: TaskKind::GetSecret,
       },
       signal,
     )
@@ -109,7 +151,9 @@ impl AsyncEntry {
 #[allow(clippy::enum_variant_names)]
 enum TaskKind {
   SetPassword(String),
+  SetSecret(Vec<u8>),
   GetPassword,
+  GetSecret,
   DeleteCredential,
 }
 
@@ -119,18 +163,33 @@ pub struct EntryTask {
 }
 
 #[napi]
+pub enum EntryResult {
+  Password(String),
+  Secret(Vec<u8>),
+  Boolean(bool),
+}
+
+#[napi]
 impl Task for EntryTask {
-  type Output = Option<Either<String, bool>>;
-  type JsValue = Option<Either<String, bool>>;
+  type Output = Option<EntryResult>;
+  type JsValue = Option<EntryResult>;
 
   fn compute(&mut self) -> Result<Self::Output> {
     match self.kind {
-      TaskKind::GetPassword => Ok(self.inner.get_password().ok().map(Either::A)),
-      TaskKind::DeleteCredential => Ok(Some(Either::B(self.inner.delete_credential().is_ok()))),
+      TaskKind::GetPassword => Ok(self.inner.get_password().ok().map(EntryResult::Password)),
+      TaskKind::GetSecret => Ok(self.inner.get_secret().ok().map(EntryResult::Secret)),
+      TaskKind::DeleteCredential => Ok(Some(EntryResult::Boolean(self.inner.delete_credential().is_ok()))),
       TaskKind::SetPassword(ref password) => {
         self
           .inner
           .set_password(password)
+          .map_err(anyhow::Error::from)?;
+        Ok(None)
+      }
+      TaskKind::SetSecret(ref secret) => {
+        self
+          .inner
+          .set_secret(secret)
           .map_err(anyhow::Error::from)?;
         Ok(None)
       }

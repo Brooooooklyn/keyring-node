@@ -7,6 +7,7 @@ import { Entry, findCredentials, findCredentialsAsync, AsyncEntry } from '../ind
 const testPassword = 'napi.rs'
 const testService = 'keyring-node-test-service'
 const testUser = 'test-user'
+const testSecret = new Uint8Array([0x68, 0x65, 0x6c, 0x6c, 0x6f]) // "hello" in bytes
 
 test('Should create and get password back', (t) => {
   const entry = new Entry(testService, testUser)
@@ -25,6 +26,26 @@ test('Should create and get password back async', async (t) => {
   const [{ password: pass, account }] = await findCredentialsAsync(testService)
   t.is(pass, testPassword)
   t.is(account, testUser)
+  await t.notThrowsAsync(() => entry.deleteCredential())
+})
+
+test('Should create and set secret', (t) => {
+  const entry = new Entry(testService, testUser)
+  t.notThrows(() => entry.setSecret(testSecret))
+  // Test that we can retrieve the secret back
+  const retrievedSecret = entry.getSecret()
+  t.truthy(retrievedSecret)
+  t.deepEqual(new Uint8Array(retrievedSecret!), testSecret)
+  t.notThrows(() => entry.deleteCredential())
+})
+
+test('Should create and set secret async', async (t) => {
+  const entry = new AsyncEntry(testService, testUser)
+  await t.notThrowsAsync(() => entry.setSecret(testSecret))
+  // Test that we can retrieve the secret back
+  const retrievedSecret = await entry.getSecret()
+  t.truthy(retrievedSecret)
+  t.deepEqual(retrievedSecret!, testSecret)
   await t.notThrowsAsync(() => entry.deleteCredential())
 })
 
