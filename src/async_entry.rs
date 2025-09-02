@@ -55,6 +55,24 @@ impl AsyncEntry {
     )
   }
 
+  #[napi(ts_return_type = "Promise<void>")]
+  /// Set the secret for this entry.
+  ///
+  /// Can return an [Ambiguous](Error::Ambiguous) error
+  /// if there is more than one platform credential
+  /// that matches this entry.  This can only happen
+  /// on some platforms, and then only if a third-party
+  /// application wrote the ambiguous credential.
+  pub fn set_secret(&self, secret: &[u8], signal: Option<AbortSignal>) -> AsyncTask<EntryTask> {
+    AsyncTask::with_optional_signal(
+      EntryTask {
+        inner: self.inner.clone(),
+        kind: TaskKind::SetSecret(secret.to_vec()),
+      },
+      signal,
+    )
+  }
+
   #[napi(ts_return_type = "Promise<string | undefined>")]
   /// Retrieve the password saved for this entry.
   ///
@@ -65,11 +83,29 @@ impl AsyncEntry {
   /// that matches this entry.  This can only happen
   /// on some platforms, and then only if a third-party
   /// application wrote the ambiguous credential.
-  pub fn get_password(&self, signal: Option<AbortSignal>) -> AsyncTask<EntryTask> {
+  pub fn get_password(&self, signal: Option<AbortSignal>) -> AsyncTask<PasswordTask> {
     AsyncTask::with_optional_signal(
-      EntryTask {
+      PasswordTask {
         inner: self.inner.clone(),
-        kind: TaskKind::GetPassword,
+      },
+      signal,
+    )
+  }
+
+  #[napi(ts_return_type = "Promise<Uint8Array | undefined>")]
+  /// Retrieve the secret saved for this entry.
+  ///
+  /// Returns a [NoEntry](Error::NoEntry) error if there isn't one.
+  ///
+  /// Can return an [Ambiguous](Error::Ambiguous) error
+  /// if there is more than one platform credential
+  /// that matches this entry.  This can only happen
+  /// on some platforms, and then only if a third-party
+  /// application wrote the ambiguous credential.
+  pub fn get_secret(&self, signal: Option<AbortSignal>) -> AsyncTask<SecretTask> {
+    AsyncTask::with_optional_signal(
+      SecretTask {
+        inner: self.inner.clone(),
       },
       signal,
     )
@@ -109,7 +145,7 @@ impl AsyncEntry {
 #[allow(clippy::enum_variant_names)]
 enum TaskKind {
   SetPassword(String),
-  GetPassword,
+  SetSecret(Vec<u8>),
   DeleteCredential,
 }
 
@@ -118,20 +154,62 @@ pub struct EntryTask {
   kind: TaskKind,
 }
 
+// Password task
+pub struct PasswordTask {
+  inner: Arc<keyring::Entry>,
+}
+
+#[napi]
+impl Task for PasswordTask {
+  type Output = Option<String>;
+  type JsValue = Option<String>;
+
+  fn compute(&mut self) -> Result<Self::Output> {
+    Ok(self.inner.get_password().ok())
+  }
+
+  fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {
+    Ok(output)
+  }
+}
+
+// Secret task
+pub struct SecretTask {
+  inner: Arc<keyring::Entry>,
+}
+
+#[napi]
+impl Task for SecretTask {
+  type Output = Option<Vec<u8>>;
+  type JsValue = Option<Vec<u8>>;
+
+  fn compute(&mut self) -> Result<Self::Output> {
+    Ok(self.inner.get_secret().ok())
+  }
+
+  fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {
+    Ok(output)
+  }
+}
+
+// Generic task for operations that don't return values or return booleans
 #[napi]
 impl Task for EntryTask {
-  type Output = Option<Either<String, bool>>;
-  type JsValue = Option<Either<String, bool>>;
+  type Output = Option<bool>;
+  type JsValue = Option<bool>;
 
   fn compute(&mut self) -> Result<Self::Output> {
     match self.kind {
-      TaskKind::GetPassword => Ok(self.inner.get_password().ok().map(Either::A)),
-      TaskKind::DeleteCredential => Ok(Some(Either::B(self.inner.delete_credential().is_ok()))),
+      TaskKind::DeleteCredential => Ok(Some(self.inner.delete_credential().is_ok())),
       TaskKind::SetPassword(ref password) => {
         self
           .inner
           .set_password(password)
           .map_err(anyhow::Error::from)?;
+        Ok(None)
+      }
+      TaskKind::SetSecret(ref secret) => {
+        self.inner.set_secret(secret).map_err(anyhow::Error::from)?;
         Ok(None)
       }
     }

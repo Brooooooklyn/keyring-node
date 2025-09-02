@@ -69,6 +69,19 @@ impl Entry {
   }
 
   #[napi]
+  /// Set the secret for this entry.
+  ///
+  /// Can return an [Ambiguous](Error::Ambiguous) error
+  /// if there is more than one platform credential
+  /// that matches this entry.  This can only happen
+  /// on some platforms, and then only if a third-party
+  /// application wrote the ambiguous credential.
+  pub fn set_secret(&self, secret: &[u8]) -> Result<()> {
+    self.inner.set_secret(secret).map_err(anyhow::Error::from)?;
+    Ok(())
+  }
+
+  #[napi]
   /// Retrieve the password saved for this entry.
   ///
   /// Returns a [NoEntry](Error::NoEntry) error if there isn't one.
@@ -80,6 +93,20 @@ impl Entry {
   /// application wrote the ambiguous credential.
   pub fn get_password(&self) -> Option<String> {
     self.inner.get_password().ok()
+  }
+
+  #[napi]
+  /// Retrieve the secret saved for this entry.
+  ///
+  /// Returns a [NoEntry](Error::NoEntry) error if there isn't one.
+  ///
+  /// Can return an [Ambiguous](Error::Ambiguous) error
+  /// if there is more than one platform credential
+  /// that matches this entry.  This can only happen
+  /// on some platforms, and then only if a third-party
+  /// application wrote the ambiguous credential.
+  pub fn get_secret(&self) -> Option<Vec<u8>> {
+    self.inner.get_secret().ok()
   }
 
   #[napi]
