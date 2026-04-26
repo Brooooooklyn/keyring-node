@@ -16,21 +16,21 @@ napi-derive = "3.0.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 byteorder = "1"
-keyring   = { version = "3", features = ["windows-native"] }
+keyring   = { version = "4", features = ["windows-native"] }
 windows   = { version = "0.62", features = ["Win32", "Win32_Security_Credentials", "Win32_Foundation"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation        = "0.10"
-keyring                = { version = "3", features = ["apple-native"] }
+keyring                = { version = "4", features = ["apple-native"] }
 security-framework     = "3.0"
 security-framework-sys = "2.12"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-keyring        = { version = "3", features = ["linux-native", "sync-secret-service", "vendored"] }
+keyring        = { version = "4", features = ["linux-native", "sync-secret-service", "vendored"] }
 secret-service = { version = "5", features = ["rt-async-io-crypto-rust"] }
 
 [target.'cfg(any(target_os = "freebsd", target_os = "openbsd"))'.dependencies]
-keyring        = { version = "3", features = ["async-secret-service", "crypto-rust"] }
+keyring        = { version = "4", features = ["async-secret-service", "crypto-rust"] }
 secret-service = { version = "5", features = ["rt-async-io-crypto-rust"] }
 
 [build-dependencies]
