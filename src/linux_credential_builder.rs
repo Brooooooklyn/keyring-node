@@ -1,50 +1,27 @@
-use keyring::{
-  credential::{CredentialApi, CredentialBuilderApi},
-  keyutils::KeyutilsCredential,
-  secret_service::SsCredential,
-};
+use keyring_core::{Result, CredentialStore};
+use linux_keyutils_keyring_store::Store as KeyutilsStore;
+use dbus_secret_service_keyring_store::Store as SecretServiceStore;
 
-use std::any::Any;
-use std::error::Error;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 /// A custom builder that falls back to keyutils if secret-service is not available.
-#[derive(Debug)]
 pub struct LinuxCredentialBuilder {
-  secret_service_missing: bool,
+  store: Arc<CredentialStore>,
 }
 
 impl LinuxCredentialBuilder {
-  pub fn new() -> Result<Self, Box<dyn Error>> {
-    let ss = SsCredential::new_with_target(None, "test", "user")?;
+  pub fn new() -> Result<Self> {
+    // Try to create secret service store, fallback to keyutils if it fails
+    let store: Arc<CredentialStore> = match SecretServiceStore::new_with_configuration(&HashMap::new()) {
+      Ok(ss_store) => ss_store,
+      Err(_) => KeyutilsStore::new_with_configuration(&HashMap::new())?,
+    };
 
-    let missing = matches!(
-      ss.map_matching_items(|_item| Ok(()), false),
-      Err(keyring::Error::PlatformFailure(_x))
-    );
-
-    Ok(Self {
-      secret_service_missing: missing,
-    })
-  }
-}
-
-impl CredentialBuilderApi for LinuxCredentialBuilder {
-  fn build(
-    &self,
-    target: Option<&str>,
-    service: &str,
-    user: &str,
-  ) -> Result<Box<(dyn CredentialApi + Send + Sync + 'static)>, keyring::Error> {
-    if !self.secret_service_missing {
-      let cred = SsCredential::new_with_target(target, service, user)?;
-      return Ok(Box::new(cred));
-    }
-
-    let cred = KeyutilsCredential::new_with_target(target, service, user)?;
-    Ok(Box::new(cred))
+    Ok(Self { store })
   }
 
-  fn as_any(&self) -> &dyn Any {
-    self
+  pub fn get_store(&self) -> Arc<CredentialStore> {
+    self.store.clone()
   }
 }

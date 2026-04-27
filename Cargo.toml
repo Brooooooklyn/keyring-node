@@ -13,24 +13,26 @@ crate-type = ["cdylib"]
 anyhow      = "1"
 napi        = { version = "3.0.0", default-features = false, features = ["napi3", "error_anyhow"] }
 napi-derive = "3.0.0"
+keyring-core = "1.0.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 byteorder = "1"
-keyring   = { version = "4", features = ["windows-native"] }
+windows-native-keyring-store = "1.0.0"
 windows   = { version = "0.62", features = ["Win32", "Win32_Security_Credentials", "Win32_Foundation"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-foundation        = "0.10"
-keyring                = { version = "4", features = ["apple-native"] }
+apple-native-keyring-store = { version = "1.0.0", features = ["keychain"] }
 security-framework     = "3.0"
 security-framework-sys = "2.12"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-keyring        = { version = "4", features = ["linux-native", "sync-secret-service", "vendored"] }
+linux-keyutils-keyring-store = "1.0.0"
+dbus-secret-service-keyring-store = { version = "1.0.0", features = ["crypto-rust", "vendored"] }
 secret-service = { version = "5", features = ["rt-async-io-crypto-rust"] }
 
 [target.'cfg(any(target_os = "freebsd", target_os = "openbsd"))'.dependencies]
-keyring        = { version = "4", features = ["async-secret-service", "crypto-rust"] }
+dbus-secret-service-keyring-store = { version = "1.0.0", features = ["crypto-rust"] }
 secret-service = { version = "5", features = ["rt-async-io-crypto-rust"] }
 
 [build-dependencies]
