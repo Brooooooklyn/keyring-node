@@ -19,7 +19,9 @@ fn setup_linux_store() -> anyhow::Result<()> {
 #[cfg(target_os = "macos")]
 fn setup_macos_store() -> anyhow::Result<()> {
   use std::collections::HashMap;
+
   use apple_native_keyring_store::keychain::Store;
+
   let store = Store::new_with_configuration(&HashMap::new())?;
   keyring_core::set_default_store(store);
   Ok(())
@@ -28,7 +30,9 @@ fn setup_macos_store() -> anyhow::Result<()> {
 #[cfg(target_os = "windows")]
 fn setup_windows_store() -> anyhow::Result<()> {
   use std::collections::HashMap;
+
   use windows_native_keyring_store::Store;
+
   let store = Store::new_with_configuration(&HashMap::new())?;
   keyring_core::set_default_store(store);
   Ok(())
@@ -36,10 +40,12 @@ fn setup_windows_store() -> anyhow::Result<()> {
 
 #[cfg(any(target_os = "freebsd", target_os = "openbsd"))]
 fn setup_bsd_store() -> anyhow::Result<()> {
-  use dbus_secret_service_keyring_store::Store;
   use std::collections::HashMap;
+
+  use dbus_secret_service_keyring_store::Store;
+
   let store = Store::new_with_configuration(&HashMap::new())?;
-  keyring_core::set_default_store(std::sync::Arc::new(store));
+  keyring_core::set_default_store(store);
   Ok(())
 }
 
