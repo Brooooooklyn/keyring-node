@@ -90,6 +90,9 @@ impl AsyncEntry {
       inner: Arc::new(
         keyring_core::Entry::new_with_modifiers(&service, &username, &{
           let mut mods = std::collections::HashMap::new();
+          #[cfg(target_os = "macos")]
+          mods.insert("keychain", target.as_str());
+          #[cfg(not(target_os = "macos"))]
           mods.insert("target", target.as_str());
           mods
         })
