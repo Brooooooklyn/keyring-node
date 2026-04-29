@@ -203,7 +203,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: ['20', '22']
+        node: ['22', '24']
         settings:
           - host: macos-latest
             target: 'aarch64-apple-darwin'
