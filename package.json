@@ -86,9 +86,9 @@
       "--import",
       "@oxc-node/core/register"
     ],
-    "extensions": {
-      "ts": "module"
-    },
+    "extensions": [
+      "ts"
+    ],
     "timeout": "2m",
     "workerThreads": false,
     "environmentVariables": {
