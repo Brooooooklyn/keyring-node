@@ -32,7 +32,7 @@ dbus-secret-service-keyring-store = { version = "1.0.0", features = ["crypto-rus
 secret-service = { version = "5", features = ["rt-async-io-crypto-rust"] }
 
 [target.'cfg(any(target_os = "freebsd", target_os = "openbsd"))'.dependencies]
-dbus-secret-service-keyring-store = { version = "1.0.0", features = ["crypto-rust", "vendored"] }
+dbus-secret-service-keyring-store = { version = "1.0.0", features = ["crypto-rust"] }
 secret-service = { version = "5", features = ["rt-async-io-crypto-rust"] }
 
 [build-dependencies]
