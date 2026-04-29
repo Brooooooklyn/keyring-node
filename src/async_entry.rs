@@ -86,7 +86,7 @@ impl AsyncEntry {
     #[cfg(any(target_os = "freebsd", target_os = "openbsd"))]
     setup_bsd_store()?;
 
-    Ok(Self {
+    let entry = Self {
       inner: Arc::new(
         keyring_core::Entry::new_with_modifiers(&service, &username, &{
           let mut mods = std::collections::HashMap::new();
@@ -98,7 +98,24 @@ impl AsyncEntry {
         })
         .map_err(anyhow::Error::from)?,
       ),
-    })
+    };
+
+    // On Windows, when using the target modifier, the username needs to be preserved
+    // by creating a placeholder credential and setting the username attribute explicitly.
+    // This is because credentials with explicit targets don't have specifiers in keyring v4.
+    // When the actual password is set later, set_secret will read and preserve these attributes.
+    #[cfg(target_os = "windows")]
+    {
+      // Create a temporary credential with empty password
+      if let Ok(_) = entry.inner.set_secret(&[]) {
+        // Set the username attribute so it's preserved when the real password is set
+        let mut attrs = std::collections::HashMap::new();
+        attrs.insert("username", username.as_str());
+        entry.inner.update_attributes(&attrs).ok();
+      }
+    }
+
+    Ok(entry)
   }
 
   #[napi(ts_return_type = "Promise<void>")]
