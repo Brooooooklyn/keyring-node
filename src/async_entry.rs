@@ -3,6 +3,7 @@ use std::sync::Arc;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
+use crate::entry::into_optional_password;
 #[cfg(target_os = "linux")]
 use crate::linux_credential_builder::LinuxCredentialBuilder;
 
@@ -161,7 +162,7 @@ impl AsyncEntry {
   #[napi(ts_return_type = "Promise<string | undefined>")]
   /// Retrieve the password saved for this entry.
   ///
-  /// Returns a [NoEntry](Error::NoEntry) error if there isn't one.
+  /// Returns no password if there isn't one.
   ///
   /// Can return an [Ambiguous](Error::Ambiguous) error
   /// if there is more than one platform credential
@@ -250,7 +251,7 @@ impl Task for PasswordTask {
   type JsValue = Option<String>;
 
   fn compute(&mut self) -> Result<Self::Output> {
-    Ok(self.inner.get_password().ok())
+    into_optional_password(self.inner.get_password())
   }
 
   fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {
