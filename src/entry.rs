@@ -4,6 +4,16 @@ use napi_derive::napi;
 #[cfg(target_os = "linux")]
 use crate::linux_credential_builder::LinuxCredentialBuilder;
 
+pub(crate) fn into_optional_password(
+  result: keyring_core::Result<String>,
+) -> Result<Option<String>> {
+  match result {
+    Ok(password) => Ok(Some(password)),
+    Err(keyring_core::Error::NoEntry) => Ok(None),
+    Err(error) => Err(anyhow::Error::from(error).into()),
+  }
+}
+
 #[napi]
 pub struct Entry {
   inner: keyring_core::Entry,
@@ -146,15 +156,15 @@ impl Entry {
   #[napi]
   /// Retrieve the password saved for this entry.
   ///
-  /// Returns a [NoEntry](Error::NoEntry) error if there isn't one.
+  /// Returns no password if there isn't one.
   ///
   /// Can return an [Ambiguous](Error::Ambiguous) error
   /// if there is more than one platform credential
   /// that matches this entry.  This can only happen
   /// on some platforms, and then only if a third-party
   /// application wrote the ambiguous credential.
-  pub fn get_password(&self) -> Option<String> {
-    self.inner.get_password().ok()
+  pub fn get_password(&self) -> Result<Option<String>> {
+    into_optional_password(self.inner.get_password())
   }
 
   #[napi]
@@ -197,6 +207,36 @@ impl Entry {
   /// Alias for `deleteCredential`
   pub fn delete_password(&self) -> bool {
     self.delete_credential()
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::into_optional_password;
+
+  #[test]
+  fn returns_password_when_found() {
+    assert_eq!(
+      into_optional_password(Ok("password".to_string())).unwrap(),
+      Some("password".to_string())
+    );
+  }
+
+  #[test]
+  fn returns_none_when_password_is_missing() {
+    assert_eq!(
+      into_optional_password(Err(keyring_core::Error::NoEntry)).unwrap(),
+      None
+    );
+  }
+
+  #[test]
+  fn preserves_non_missing_errors() {
+    let result = into_optional_password(Err(keyring_core::Error::NoStorageAccess(Box::new(
+      std::io::Error::other("keychain is locked"),
+    ))));
+
+    assert!(result.is_err());
   }
 }
 

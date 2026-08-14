@@ -36,7 +36,7 @@ export declare class AsyncEntry {
   /**
    * Retrieve the password saved for this entry.
    *
-   * Returns a [NoEntry](Error::NoEntry) error if there isn't one.
+   * Returns no password if there isn't one.
    *
    * Can return an [Ambiguous](Error::Ambiguous) error
    * if there is more than one platform credential
@@ -113,7 +113,7 @@ export declare class Entry {
   /**
    * Retrieve the password saved for this entry.
    *
-   * Returns a [NoEntry](Error::NoEntry) error if there isn't one.
+   * Returns no password if there isn't one.
    *
    * Can return an [Ambiguous](Error::Ambiguous) error
    * if there is more than one platform credential
