@@ -48,9 +48,12 @@ export declare class AsyncEntry {
   /**
    * Retrieve the secret saved for this entry.
    *
-   * Returns a [NoEntry](Error::NoEntry) error if there isn't one.
+   * Returns no secret if there isn't one.
    *
-   * Can return an [Ambiguous](Error::Ambiguous) error
+   * Rejects if the credential store cannot be read, for example when it is
+   * locked or inaccessible.
+   *
+   * Can reject with an [Ambiguous](Error::Ambiguous) error
    * if there is more than one platform credential
    * that matches this entry.  This can only happen
    * on some platforms, and then only if a third-party
@@ -60,9 +63,15 @@ export declare class AsyncEntry {
   /**
    * Delete the underlying credential for this entry.
    *
-   * Returns a [NoEntry](Error::NoEntry) error if there isn't one.
+   * Resolves `true` if a credential was deleted, and `false` if there was no
+   * credential to delete.
    *
-   * Can return an [Ambiguous](Error::Ambiguous) error
+   * Rejects if the credential exists but could not be deleted, for example
+   * when the store is locked or inaccessible. A failed deletion is never
+   * reported as `false`, so a `false` result always means the credential is
+   * absent from the store.
+   *
+   * Can reject with an [Ambiguous](Error::Ambiguous) error
    * if there is more than one platform credential
    * that matches this entry.  This can only happen
    * on some platforms, and then only if a third-party
@@ -74,7 +83,7 @@ export declare class AsyncEntry {
    */
   deleteCredential(signal?: AbortSignal | undefined | null): Promise<boolean>
   /** Alias for `deleteCredential` */
-  deletePassword(signal?: AbortSignal | undefined | null): Promise<unknown>
+  deletePassword(signal?: AbortSignal | undefined | null): Promise<boolean>
 }
 
 export declare class Entry {
@@ -125,9 +134,12 @@ export declare class Entry {
   /**
    * Retrieve the secret saved for this entry.
    *
-   * Returns a [NoEntry](Error::NoEntry) error if there isn't one.
+   * Returns no secret if there isn't one.
    *
-   * Can return an [Ambiguous](Error::Ambiguous) error
+   * Throws if the credential store cannot be read, for example when it is
+   * locked or inaccessible.
+   *
+   * Can throw an [Ambiguous](Error::Ambiguous) error
    * if there is more than one platform credential
    * that matches this entry.  This can only happen
    * on some platforms, and then only if a third-party
@@ -137,9 +149,15 @@ export declare class Entry {
   /**
    * Delete the underlying credential for this entry.
    *
-   * Returns a [NoEntry](Error::NoEntry) error if there isn't one.
+   * Returns `true` if a credential was deleted, and `false` if there was no
+   * credential to delete.
    *
-   * Can return an [Ambiguous](Error::Ambiguous) error
+   * Throws if the credential exists but could not be deleted, for example
+   * when the store is locked or inaccessible. A failed deletion is never
+   * reported as `false`, so a `false` result always means the credential is
+   * absent from the store.
+   *
+   * Can throw an [Ambiguous](Error::Ambiguous) error
    * if there is more than one platform credential
    * that matches this entry.  This can only happen
    * on some platforms, and then only if a third-party

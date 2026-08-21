@@ -3,9 +3,9 @@ use std::sync::Arc;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
-use crate::entry::into_optional_password;
 #[cfg(target_os = "linux")]
 use crate::linux_credential_builder::LinuxCredentialBuilder;
+use crate::result::{into_deleted, into_optional};
 
 #[napi]
 pub struct AsyncEntry {
@@ -181,9 +181,12 @@ impl AsyncEntry {
   #[napi(ts_return_type = "Promise<Uint8Array | undefined>")]
   /// Retrieve the secret saved for this entry.
   ///
-  /// Returns a [NoEntry](Error::NoEntry) error if there isn't one.
+  /// Returns no secret if there isn't one.
   ///
-  /// Can return an [Ambiguous](Error::Ambiguous) error
+  /// Rejects if the credential store cannot be read, for example when it is
+  /// locked or inaccessible.
+  ///
+  /// Can reject with an [Ambiguous](Error::Ambiguous) error
   /// if there is more than one platform credential
   /// that matches this entry.  This can only happen
   /// on some platforms, and then only if a third-party
@@ -200,9 +203,15 @@ impl AsyncEntry {
   #[napi(ts_return_type = "Promise<boolean>")]
   /// Delete the underlying credential for this entry.
   ///
-  /// Returns a [NoEntry](Error::NoEntry) error if there isn't one.
+  /// Resolves `true` if a credential was deleted, and `false` if there was no
+  /// credential to delete.
   ///
-  /// Can return an [Ambiguous](Error::Ambiguous) error
+  /// Rejects if the credential exists but could not be deleted, for example
+  /// when the store is locked or inaccessible. A failed deletion is never
+  /// reported as `false`, so a `false` result always means the credential is
+  /// absent from the store.
+  ///
+  /// Can reject with an [Ambiguous](Error::Ambiguous) error
   /// if there is more than one platform credential
   /// that matches this entry.  This can only happen
   /// on some platforms, and then only if a third-party
@@ -221,7 +230,7 @@ impl AsyncEntry {
     )
   }
 
-  #[napi]
+  #[napi(ts_return_type = "Promise<boolean>")]
   /// Alias for `deleteCredential`
   pub fn delete_password(&self, signal: Option<AbortSignal>) -> AsyncTask<EntryTask> {
     self.delete_credential(signal)
@@ -251,7 +260,7 @@ impl Task for PasswordTask {
   type JsValue = Option<String>;
 
   fn compute(&mut self) -> Result<Self::Output> {
-    into_optional_password(self.inner.get_password())
+    into_optional(self.inner.get_password())
   }
 
   fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {
@@ -270,7 +279,7 @@ impl Task for SecretTask {
   type JsValue = Option<Vec<u8>>;
 
   fn compute(&mut self) -> Result<Self::Output> {
-    Ok(self.inner.get_secret().ok())
+    into_optional(self.inner.get_secret())
   }
 
   fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {
@@ -286,7 +295,7 @@ impl Task for EntryTask {
 
   fn compute(&mut self) -> Result<Self::Output> {
     match self.kind {
-      TaskKind::DeleteCredential => Ok(Some(self.inner.delete_credential().is_ok())),
+      TaskKind::DeleteCredential => into_deleted(self.inner.delete_credential()).map(Some),
       TaskKind::SetPassword(ref password) => {
         self
           .inner
