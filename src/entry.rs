@@ -3,16 +3,7 @@ use napi_derive::napi;
 
 #[cfg(target_os = "linux")]
 use crate::linux_credential_builder::LinuxCredentialBuilder;
-
-pub(crate) fn into_optional_password(
-  result: keyring_core::Result<String>,
-) -> Result<Option<String>> {
-  match result {
-    Ok(password) => Ok(Some(password)),
-    Err(keyring_core::Error::NoEntry) => Ok(None),
-    Err(error) => Err(anyhow::Error::from(error).into()),
-  }
-}
+use crate::result::{into_deleted, into_optional};
 
 #[napi]
 pub struct Entry {
@@ -164,29 +155,38 @@ impl Entry {
   /// on some platforms, and then only if a third-party
   /// application wrote the ambiguous credential.
   pub fn get_password(&self) -> Result<Option<String>> {
-    into_optional_password(self.inner.get_password())
+    into_optional(self.inner.get_password())
   }
 
   #[napi]
   /// Retrieve the secret saved for this entry.
   ///
-  /// Returns a [NoEntry](Error::NoEntry) error if there isn't one.
+  /// Returns no secret if there isn't one.
   ///
-  /// Can return an [Ambiguous](Error::Ambiguous) error
+  /// Throws if the credential store cannot be read, for example when it is
+  /// locked or inaccessible.
+  ///
+  /// Can throw an [Ambiguous](Error::Ambiguous) error
   /// if there is more than one platform credential
   /// that matches this entry.  This can only happen
   /// on some platforms, and then only if a third-party
   /// application wrote the ambiguous credential.
-  pub fn get_secret(&self) -> Option<Vec<u8>> {
-    self.inner.get_secret().ok()
+  pub fn get_secret(&self) -> Result<Option<Vec<u8>>> {
+    into_optional(self.inner.get_secret())
   }
 
   #[napi]
   /// Delete the underlying credential for this entry.
   ///
-  /// Returns a [NoEntry](Error::NoEntry) error if there isn't one.
+  /// Returns `true` if a credential was deleted, and `false` if there was no
+  /// credential to delete.
   ///
-  /// Can return an [Ambiguous](Error::Ambiguous) error
+  /// Throws if the credential exists but could not be deleted, for example
+  /// when the store is locked or inaccessible. A failed deletion is never
+  /// reported as `false`, so a `false` result always means the credential is
+  /// absent from the store.
+  ///
+  /// Can throw an [Ambiguous](Error::Ambiguous) error
   /// if there is more than one platform credential
   /// that matches this entry.  This can only happen
   /// on some platforms, and then only if a third-party
@@ -195,48 +195,14 @@ impl Entry {
   /// Note: This does _not_ affect the lifetime of the [Entry]
   /// structure, which is controlled by Rust.  It only
   /// affects the underlying credential store.
-  pub fn delete_credential(&self) -> bool {
-    self
-      .inner
-      .delete_credential()
-      .map_err(anyhow::Error::from)
-      .is_ok()
+  pub fn delete_credential(&self) -> Result<bool> {
+    into_deleted(self.inner.delete_credential())
   }
 
   #[napi]
   /// Alias for `deleteCredential`
-  pub fn delete_password(&self) -> bool {
+  pub fn delete_password(&self) -> Result<bool> {
     self.delete_credential()
-  }
-}
-
-#[cfg(test)]
-mod tests {
-  use super::into_optional_password;
-
-  #[test]
-  fn returns_password_when_found() {
-    assert_eq!(
-      into_optional_password(Ok("password".to_string())).unwrap(),
-      Some("password".to_string())
-    );
-  }
-
-  #[test]
-  fn returns_none_when_password_is_missing() {
-    assert_eq!(
-      into_optional_password(Err(keyring_core::Error::NoEntry)).unwrap(),
-      None
-    );
-  }
-
-  #[test]
-  fn preserves_non_missing_errors() {
-    let result = into_optional_password(Err(keyring_core::Error::NoStorageAccess(Box::new(
-      std::io::Error::other("keychain is locked"),
-    ))));
-
-    assert!(result.is_err());
   }
 }
 

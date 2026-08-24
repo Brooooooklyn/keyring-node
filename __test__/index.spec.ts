@@ -8,6 +8,8 @@ const testPassword = 'napi.rs'
 const testService = 'keyring-node-test-service'
 const testUser = 'test-user'
 const testSecret = new Uint8Array([0x68, 0x65, 0x6c, 0x6c, 0x6f]) // "hello" in bytes
+const testDeleteUser = 'test-delete-user'
+const testMissingSecretUser = 'test-missing-secret-user'
 
 test('Should create and get password back', (t) => {
   const entry = new Entry(testService, testUser)
@@ -70,6 +72,45 @@ test('Should handle binary data correctly with setSecret/getSecret async', async
   t.truthy(retrievedSecret)
   t.deepEqual(new Uint8Array(retrievedSecret!), binaryData)
   await t.notThrowsAsync(() => entry.deleteCredential())
+})
+
+test('deleteCredential should report whether a credential was removed', (t) => {
+  const entry = new Entry(testService, testDeleteUser)
+  t.notThrows(() => entry.setPassword(testPassword))
+  t.true(entry.deleteCredential(), 'deleting an existing credential reports true')
+  t.false(entry.deleteCredential(), 'deleting a missing credential reports false')
+})
+
+test('deleteCredential should report whether a credential was removed async', async (t) => {
+  const entry = new AsyncEntry(testService, testDeleteUser)
+  await t.notThrowsAsync(() => entry.setPassword(testPassword))
+  t.true(await entry.deleteCredential(), 'deleting an existing credential resolves true')
+  t.false(await entry.deleteCredential(), 'deleting a missing credential resolves false')
+})
+
+test('deletePassword should behave like deleteCredential', (t) => {
+  const entry = new Entry(testService, testDeleteUser)
+  t.notThrows(() => entry.setPassword(testPassword))
+  t.true(entry.deletePassword())
+  t.false(entry.deletePassword())
+})
+
+test('deletePassword should behave like deleteCredential async', async (t) => {
+  const entry = new AsyncEntry(testService, testDeleteUser)
+  await t.notThrowsAsync(() => entry.setPassword(testPassword))
+  t.true(await entry.deletePassword())
+  t.false(await entry.deletePassword())
+})
+
+test('Should return no secret value when the entry is missing async', async (t) => {
+  const entry = new AsyncEntry(testService, testMissingSecretUser)
+  // These resolve `null` at runtime while being declared as `undefined`.
+  t.is((await entry.getSecret()) ?? null, null)
+})
+
+test('Should return no secret value when the entry is missing', (t) => {
+  const entry = new Entry(testService, testMissingSecretUser)
+  t.is(entry.getSecret(), null)
 })
 
 let testTarget: string | undefined

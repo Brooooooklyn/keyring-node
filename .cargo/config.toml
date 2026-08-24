@@ -1,3 +1,9 @@
 [target.aarch64-unknown-linux-musl]
 linker = "aarch64-linux-musl-gcc"
 rustflags = ["-C", "target-feature=-crt-static"]
+
+# `cargo test` builds this crate as a standalone test binary, which cannot
+# resolve the `napi_*` symbols that the Node process provides at load time for
+# the cdylib. Deferring those symbols to load time lets unit tests link.
+[target.'cfg(target_os = "macos")']
+rustflags = ["-C", "link-arg=-Wl,-undefined,dynamic_lookup"]
