@@ -5,14 +5,22 @@ export declare class AsyncEntry {
    * Create an entry for the given service and username.
    *
    * The default credential builder is used.
+   *
+   * An optional [EntryOptions] bag controls platform-specific behavior; it is
+   * accepted on all platforms but currently only used on Linux, where it can
+   * pin the entry to a specific credential store.
    */
-  constructor(service: string, username: string)
+  constructor(service: string, username: string, options?: EntryOptions | undefined | null)
   /**
    * Create an entry for the given target, service, and username.
    *
    * The default credential builder is used.
+   *
+   * An optional [EntryOptions] bag controls platform-specific behavior; it is
+   * accepted on all platforms but currently only used on Linux, where it can
+   * pin the entry to a specific credential store.
    */
-  static withTarget(target: string, service: string, username: string): AsyncEntry
+  static withTarget(target: string, service: string, username: string, options?: EntryOptions | undefined | null): AsyncEntry
   /**
    * Set the password for this entry.
    *
@@ -91,14 +99,22 @@ export declare class Entry {
    * Create an entry for the given service and username.
    *
    * The default credential builder is used.
+   *
+   * An optional [EntryOptions] bag controls platform-specific behavior; it is
+   * accepted on all platforms but currently only used on Linux, where it can
+   * pin the entry to a specific credential store.
    */
-  constructor(service: string, username: string)
+  constructor(service: string, username: string, options?: EntryOptions | undefined | null)
   /**
    * Create an entry for the given target, service, and username.
    *
    * The default credential builder is used.
+   *
+   * An optional [EntryOptions] bag controls platform-specific behavior; it is
+   * accepted on all platforms but currently only used on Linux, where it can
+   * pin the entry to a specific credential store.
    */
-  static withTarget(target: string, service: string, username: string): Entry
+  static withTarget(target: string, service: string, username: string, options?: EntryOptions | undefined | null): Entry
   /**
    * Set the password for this entry.
    *
@@ -177,8 +193,48 @@ export interface Credential {
   password: string
 }
 
+/**
+ * Options for creating an `Entry` or `AsyncEntry`.
+ *
+ * All options are platform-specific: they are accepted on every platform but
+ * only take effect where documented. Leaving an option absent keeps the
+ * current default behavior.
+ */
+export interface EntryOptions {
+  /** Linux-only options; ignored on other platforms. */
+  linux?: LinuxEntryOptions
+}
+
 /** find credentials by service name */
 export declare function findCredentials(service: string, target?: string | undefined | null): Array<Credential>
 
 /** find credentials by service name */
 export declare function findCredentialsAsync(service: string, target?: string | undefined | null, signal?: AbortSignal | undefined | null): Promise<Array<Credential>>
+
+/** Linux-only entry options; ignored on other platforms. */
+export interface LinuxEntryOptions {
+  /**
+   * Require a specific Linux credential store. When absent, the default
+   * auto-fallback selection is used (Secret Service, falling back to the
+   * kernel keyring). Requiring a store that is unavailable throws instead of
+   * falling back.
+   */
+  store?: LinuxStore
+}
+
+/**
+ * A Linux credential store that entries can be pinned to.
+ *
+ * Linux only; ignored on other platforms. Requiring a store that is
+ * unavailable on this machine throws instead of falling back.
+ */
+export type LinuxStore = /**
+ * The freedesktop Secret Service (D-Bus) as provided by gnome-keyring or
+ * KWallet. Persistent daemon-backed storage.
+ */
+'secret-service'|
+/**
+ * The Linux kernel keyring via keyutils. In-memory only: credentials
+ * vanish on reboot.
+ */
+'keyutils';

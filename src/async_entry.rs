@@ -3,53 +3,13 @@ use std::sync::Arc;
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
 
-#[cfg(target_os = "linux")]
-use crate::linux_credential_builder::LinuxCredentialBuilder;
+use crate::entry_builder::create_entry;
+use crate::options::EntryOptions;
 use crate::result::{into_deleted, into_optional};
 
 #[napi]
 pub struct AsyncEntry {
   inner: Arc<keyring_core::Entry>,
-}
-
-#[cfg(target_os = "linux")]
-fn setup_linux_store() -> anyhow::Result<()> {
-  let builder = LinuxCredentialBuilder::new()?;
-  keyring_core::set_default_store(builder.get_store());
-  Ok(())
-}
-
-#[cfg(target_os = "macos")]
-fn setup_macos_store() -> anyhow::Result<()> {
-  use std::collections::HashMap;
-
-  use apple_native_keyring_store::keychain::Store;
-
-  let store = Store::new_with_configuration(&HashMap::new())?;
-  keyring_core::set_default_store(store);
-  Ok(())
-}
-
-#[cfg(target_os = "windows")]
-fn setup_windows_store() -> anyhow::Result<()> {
-  use std::collections::HashMap;
-
-  use windows_native_keyring_store::Store;
-
-  let store = Store::new_with_configuration(&HashMap::new())?;
-  keyring_core::set_default_store(store);
-  Ok(())
-}
-
-#[cfg(any(target_os = "freebsd", target_os = "openbsd"))]
-fn setup_bsd_store() -> anyhow::Result<()> {
-  use std::collections::HashMap;
-
-  use dbus_secret_service_keyring_store::Store;
-
-  let store = Store::new_with_configuration(&HashMap::new())?;
-  keyring_core::set_default_store(store);
-  Ok(())
 }
 
 #[napi]
@@ -58,18 +18,13 @@ impl AsyncEntry {
   /// Create an entry for the given service and username.
   ///
   /// The default credential builder is used.
-  pub fn new(service: String, username: String) -> Result<Self> {
-    #[cfg(target_os = "linux")]
-    setup_linux_store()?;
-    #[cfg(target_os = "macos")]
-    setup_macos_store()?;
-    #[cfg(target_os = "windows")]
-    setup_windows_store()?;
-    #[cfg(any(target_os = "freebsd", target_os = "openbsd"))]
-    setup_bsd_store()?;
-
+  ///
+  /// An optional [EntryOptions] bag controls platform-specific behavior; it is
+  /// accepted on all platforms but currently only used on Linux, where it can
+  /// pin the entry to a specific credential store.
+  pub fn new(service: String, username: String, options: Option<EntryOptions>) -> Result<Self> {
     Ok(Self {
-      inner: Arc::new(keyring_core::Entry::new(&service, &username).map_err(anyhow::Error::from)?),
+      inner: Arc::new(create_entry(&service, &username, None, options.as_ref())?),
     })
   }
 
@@ -77,46 +32,24 @@ impl AsyncEntry {
   /// Create an entry for the given target, service, and username.
   ///
   /// The default credential builder is used.
-  pub fn with_target(target: String, service: String, username: String) -> Result<Self> {
-    #[cfg(target_os = "linux")]
-    setup_linux_store()?;
-    #[cfg(target_os = "macos")]
-    setup_macos_store()?;
-    #[cfg(target_os = "windows")]
-    setup_windows_store()?;
-    #[cfg(any(target_os = "freebsd", target_os = "openbsd"))]
-    setup_bsd_store()?;
-
-    let entry = Self {
-      inner: Arc::new(
-        keyring_core::Entry::new_with_modifiers(&service, &username, &{
-          let mut mods = std::collections::HashMap::new();
-          #[cfg(target_os = "macos")]
-          mods.insert("keychain", target.as_str());
-          #[cfg(not(target_os = "macos"))]
-          mods.insert("target", target.as_str());
-          mods
-        })
-        .map_err(anyhow::Error::from)?,
-      ),
-    };
-
-    // On Windows, when using the target modifier, the username needs to be preserved
-    // by creating a placeholder credential and setting the username attribute explicitly.
-    // This is because credentials with explicit targets don't have specifiers in keyring v4.
-    // When the actual password is set later, set_secret will read and preserve these attributes.
-    #[cfg(target_os = "windows")]
-    {
-      // Create a temporary credential with empty password
-      if let Ok(_) = entry.inner.set_secret(&[]) {
-        // Set the username attribute so it's preserved when the real password is set
-        let mut attrs = std::collections::HashMap::new();
-        attrs.insert("username", username.as_str());
-        entry.inner.update_attributes(&attrs).ok();
-      }
-    }
-
-    Ok(entry)
+  ///
+  /// An optional [EntryOptions] bag controls platform-specific behavior; it is
+  /// accepted on all platforms but currently only used on Linux, where it can
+  /// pin the entry to a specific credential store.
+  pub fn with_target(
+    target: String,
+    service: String,
+    username: String,
+    options: Option<EntryOptions>,
+  ) -> Result<Self> {
+    Ok(Self {
+      inner: Arc::new(create_entry(
+        &service,
+        &username,
+        Some(&target),
+        options.as_ref(),
+      )?),
+    })
   }
 
   #[napi(ts_return_type = "Promise<void>")]
