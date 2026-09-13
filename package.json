@@ -59,18 +59,18 @@
     "version": "napi version"
   },
   "devDependencies": {
-    "@napi-rs/cli": "^3.1.5",
-    "@oxc-node/core": "^0.1.0",
+    "@napi-rs/cli": "^3.9.1",
+    "@oxc-node/core": "^0.1.1",
     "@taplo/cli": "^0.7.0",
-    "@types/node": "^24.3.0",
-    "ava": "^8.0.0",
+    "@types/node": "^26.5.1",
+    "ava": "^8.0.1",
     "chalk": "^6.0.0",
     "husky": "^9.1.7",
-    "lint-staged": "^17.0.0",
-    "npm-run-all2": "^9.0.0",
-    "oxlint": "^1.13.0",
-    "prettier": "^3.6.2",
-    "typescript": "^7.0.0"
+    "lint-staged": "^17.5.1",
+    "npm-run-all2": "^9.0.3",
+    "oxlint": "^1.82.0",
+    "prettier": "^3.9.6",
+    "typescript": "^7.0.2"
   },
   "lint-staged": {
     "*.@(js|ts|tsx)": [
