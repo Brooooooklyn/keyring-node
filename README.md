@@ -1,7 +1,6 @@
 # `@napi-rs/keyring`
 
 ![https://github.com/Brooooooklyn/keyring-node/actions](https://github.com/Brooooooklyn/keyring-node/workflows/CI/badge.svg)
-[![install size](https://packagephobia.com/badge?p=@napi-rs/keyring)](https://packagephobia.com/result?p=@napi-rs/keyring)
 [![Downloads](https://img.shields.io/npm/dm/@napi-rs/keyring.svg?sanitize=true)](https://npmcharts.com/compare/@napi-rs/keyring?minimal=true)
 
 > https://github.com/hwchen/keyring-rs Node.js binding via https://napi.rs
