@@ -48,6 +48,7 @@ test('Should create and set secret async', async (t) => {
   const retrievedSecret = await entry.getSecret()
   t.truthy(retrievedSecret)
   // NAPI returns Vec<u8> as JavaScript array, so we need to convert for comparison
+  t.true(Array.isArray(retrievedSecret))
   t.deepEqual(new Uint8Array(retrievedSecret!), testSecret)
   await t.notThrowsAsync(() => entry.deleteCredential())
 })
@@ -70,6 +71,7 @@ test('Should handle binary data correctly with setSecret/getSecret async', async
   await t.notThrowsAsync(() => entry.setSecret(binaryData))
   const retrievedSecret = await entry.getSecret()
   t.truthy(retrievedSecret)
+  t.true(Array.isArray(retrievedSecret))
   t.deepEqual(new Uint8Array(retrievedSecret!), binaryData)
   await t.notThrowsAsync(() => entry.deleteCredential())
 })
@@ -104,8 +106,8 @@ test('deletePassword should behave like deleteCredential async', async (t) => {
 
 test('Should return no secret value when the entry is missing async', async (t) => {
   const entry = new AsyncEntry(testService, testMissingSecretUser)
-  // These resolve `null` at runtime while being declared as `undefined`.
-  t.is((await entry.getSecret()) ?? null, null)
+  t.is(await entry.getSecret(), null)
+  t.is(await entry.getPassword(), null)
 })
 
 test('Should return no secret value when the entry is missing', (t) => {
