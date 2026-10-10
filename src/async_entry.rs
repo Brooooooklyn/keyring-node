@@ -92,10 +92,10 @@ impl AsyncEntry {
     )
   }
 
-  #[napi(ts_return_type = "Promise<string | undefined>")]
+  #[napi(ts_return_type = "Promise<string | null>")]
   /// Retrieve the password saved for this entry.
   ///
-  /// Returns no password if there isn't one.
+  /// Resolves `null` if there isn't one.
   ///
   /// Can return an [Ambiguous](Error::Ambiguous) error
   /// if there is more than one platform credential
@@ -111,10 +111,10 @@ impl AsyncEntry {
     )
   }
 
-  #[napi(ts_return_type = "Promise<Uint8Array | undefined>")]
+  #[napi(ts_return_type = "Promise<Uint8Array | null>")]
   /// Retrieve the secret saved for this entry.
   ///
-  /// Returns no secret if there isn't one.
+  /// Resolves `null` if there isn't one.
   ///
   /// Rejects if the credential store cannot be read, for example when it is
   /// locked or inaccessible.

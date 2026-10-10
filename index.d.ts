@@ -45,7 +45,7 @@ export declare class AsyncEntry {
   /**
    * Retrieve the password saved for this entry.
    *
-   * Returns no password if there isn't one.
+   * Resolves `null` if there isn't one.
    *
    * Can return an [Ambiguous](Error::Ambiguous) error
    * if there is more than one platform credential
@@ -53,11 +53,11 @@ export declare class AsyncEntry {
    * on some platforms, and then only if a third-party
    * application wrote the ambiguous credential.
    */
-  getPassword(signal?: AbortSignal | undefined | null): Promise<string | undefined>
+  getPassword(signal?: AbortSignal | undefined | null): Promise<string | null>
   /**
    * Retrieve the secret saved for this entry.
    *
-   * Returns no secret if there isn't one.
+   * Resolves `null` if there isn't one.
    *
    * Rejects if the credential store cannot be read, for example when it is
    * locked or inaccessible.
@@ -68,7 +68,7 @@ export declare class AsyncEntry {
    * on some platforms, and then only if a third-party
    * application wrote the ambiguous credential.
    */
-  getSecret(signal?: AbortSignal | undefined | null): Promise<Uint8Array | undefined>
+  getSecret(signal?: AbortSignal | undefined | null): Promise<Uint8Array | null>
   /**
    * Delete the underlying credential for this entry.
    *
