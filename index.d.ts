@@ -68,7 +68,7 @@ export declare class AsyncEntry {
    * on some platforms, and then only if a third-party
    * application wrote the ambiguous credential.
    */
-  getSecret(signal?: AbortSignal | undefined | null): Promise<Uint8Array | null>
+  getSecret(signal?: AbortSignal | undefined | null): Promise<Array<number> | null>
   /**
    * Delete the underlying credential for this entry.
    *

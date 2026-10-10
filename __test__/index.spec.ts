@@ -48,6 +48,7 @@ test('Should create and set secret async', async (t) => {
   const retrievedSecret = await entry.getSecret()
   t.truthy(retrievedSecret)
   // NAPI returns Vec<u8> as JavaScript array, so we need to convert for comparison
+  t.true(Array.isArray(retrievedSecret))
   t.deepEqual(new Uint8Array(retrievedSecret!), testSecret)
   await t.notThrowsAsync(() => entry.deleteCredential())
 })
@@ -70,6 +71,7 @@ test('Should handle binary data correctly with setSecret/getSecret async', async
   await t.notThrowsAsync(() => entry.setSecret(binaryData))
   const retrievedSecret = await entry.getSecret()
   t.truthy(retrievedSecret)
+  t.true(Array.isArray(retrievedSecret))
   t.deepEqual(new Uint8Array(retrievedSecret!), binaryData)
   await t.notThrowsAsync(() => entry.deleteCredential())
 })

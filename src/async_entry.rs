@@ -111,7 +111,7 @@ impl AsyncEntry {
     )
   }
 
-  #[napi(ts_return_type = "Promise<Uint8Array | null>")]
+  #[napi(ts_return_type = "Promise<Array<number> | null>")]
   /// Retrieve the secret saved for this entry.
   ///
   /// Resolves `null` if there isn't one.
