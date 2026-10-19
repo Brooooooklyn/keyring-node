@@ -42,3 +42,24 @@ description, so distinct targets keep distinct credentials.
 > [linux-keyutils-keyring-store](https://crates.io/crates/linux-keyutils-keyring-store) docs, the key
 > management facility "is completely in-memory and will not persist across reboots". Prefer
 > `secret-service` for credentials that must survive a restart.
+
+# Bundled Rust dependencies
+
+The prebuilt `.node` binaries are built with `--locked` from the committed [`Cargo.lock`](./Cargo.lock), and with
+[`cargo auditable`](https://github.com/rust-secure-code/cargo-auditable), which embeds the exact list of Rust crates
+compiled into each binary. Recover it for license compliance or vulnerability scanning with:
+
+```sh
+cargo install rust-audit-info
+rust-audit-info node_modules/@napi-rs/keyring-darwin-arm64/keyring.darwin-arm64.node
+
+# or scan for known vulnerabilities
+cargo audit bin node_modules/@napi-rs/keyring-darwin-arm64/keyring.darwin-arm64.node
+```
+
+[syft](https://github.com/anchore/syft), [trivy](https://github.com/aquasecurity/trivy) and
+[grype](https://github.com/anchore/grype) read the same data.
+
+> **Note:** the Linux binaries statically link `libdbus` (built from the sources vendored by
+> [`libdbus-sys`](https://crates.io/crates/libdbus-sys)), which is licensed under `AFL-2.1 OR GPL-2.0-or-later`
+> rather than the crate's own `MIT OR Apache-2.0`.
