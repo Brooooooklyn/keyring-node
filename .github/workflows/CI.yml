@@ -18,7 +18,10 @@ env:
   pull_request: null
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # PR runs cancel stale runs for fast iteration. Main pushes never cancel
+  # each other: a later push must not kill an in-flight release — signing and
+  # notarization can take many minutes — and skip its publish.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   lint:
     name: Lint
@@ -196,10 +199,193 @@ jobs:
           name: bindings-freebsd
           path: ${{ env.APP_NAME }}.*.node
           if-no-files-found: error
+  # Signing lives in its own job, never in the build matrix: the build legs
+  # run yarn/cargo (arbitrary dependency code), and reusable Apple credentials
+  # must not exist on a runner that has executed it. This job checks out
+  # nothing and runs no package scripts — it only downloads the immutable
+  # build artifacts, signs, notarizes, and re-uploads them.
+  #
+  # The job never runs for PRs, so PR-triggered jobs (forked or not) can never
+  # read the Apple secrets. On main pushes it is a cheap no-op unless the
+  # commit publishes to npm (same predicate as the publish job below), so the
+  # credentials only materialize for actual releases.
+  sign-macos:
+    name: Sign and notarize macOS binaries
+    runs-on: macos-latest
+    needs:
+      - build
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Check whether this commit publishes to npm
+        id: release
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          # Subject line only, full match with optional prerelease suffix:
+          # covers `x.y.z` (npm publish) and `x.y.z-...` (npm publish
+          # --tag next), mirroring the publish job. Scanning the whole commit
+          # body would let release-note text like "9.0.4." inside an
+          # unrelated commit authorize certificate use — every historical
+          # release commit here has a bare-version subject.
+          if printf '%s\n' "$COMMIT_MSG" | head -n1 | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "match=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "match=false" >> "$GITHUB_OUTPUT"
+            echo "Not a release commit; skipping signing."
+          fi
+      - name: Download macOS artifacts
+        if: steps.release.outputs.match == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          pattern: bindings-*-apple-darwin
+          path: .
+          merge-multiple: true
+      - name: Import signing certificate
+        if: steps.release.outputs.match == 'true'
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          trap 'rm -f "$RUNNER_TEMP/cert.p12"' EXIT TERM INT
+          # Ephemeral per-job keychain: the default login keychain is locked on
+          # runners, and its GUI unlock prompt can never be answered in CI.
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 32)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          printf '%s' "$CSC_LINK" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          # -x: the private key stays non-extractable after import.
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -x \
+            -P "$CSC_KEY_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+          rm -f "$RUNNER_TEMP/cert.p12"
+          # Without this, codesign blocks on a GUI keychain-access prompt that
+          # can never be answered, and the job hangs until it times out.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN" \
+            | sed -n 's/.*"\(Developer ID Application: .*\)"/\1/p' | head -1)"
+          [ -n "$IDENTITY" ] || { echo "::error::no Developer ID Application identity in the keychain"; exit 1; }
+          echo "SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+          echo "KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
+      - name: Sign and verify .node binaries
+        if: steps.release.outputs.match == 'true'
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          for BIN in keyring.darwin-*.node; do
+            # The notary service rejects signatures without the hardened
+            # runtime (--options runtime) or without a secure Apple timestamp.
+            codesign --sign "$SIGN_IDENTITY" --options runtime --timestamp --force "$BIN"
+            # A wrong or malformed signature is cheapest to catch here; the
+            # notary is the slowest way possible to discover one.
+            codesign --verify --strict --verbose=2 "$BIN"
+            codesign -dvvv "$BIN" > "$RUNNER_TEMP/codesign-info.txt" 2>&1
+            grep -q "Authority=Developer ID Application" "$RUNNER_TEMP/codesign-info.txt" \
+              || { echo "::error::$BIN signed with the wrong certificate"; cat "$RUNNER_TEMP/codesign-info.txt"; exit 1; }
+            grep -q "TeamIdentifier=$APPLE_TEAM_ID" "$RUNNER_TEMP/codesign-info.txt" \
+              || { echo "::error::$BIN has an unexpected TeamIdentifier"; cat "$RUNNER_TEMP/codesign-info.txt"; exit 1; }
+            grep -q "^Timestamp=" "$RUNNER_TEMP/codesign-info.txt" \
+              || { echo "::error::$BIN is missing a secure timestamp"; cat "$RUNNER_TEMP/codesign-info.txt"; exit 1; }
+          done
+      # Notarization authenticates with the App Store Connect API key, so the
+      # certificate is disposable once signing is done. Destroy the keychain
+      # before the long notary wait instead of leaving it unlocked.
+      - name: Destroy signing keychain
+        if: steps.release.outputs.match == 'true'
+        run: security delete-keychain "$KEYCHAIN"
+      - name: Notarize .node binaries
+        if: steps.release.outputs.match == 'true'
+        env:
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          set -euo pipefail
+          KEY="$RUNNER_TEMP/AuthKey.p8"
+          trap 'rm -f "$KEY" "$RUNNER_TEMP/upload.zip" "$RUNNER_TEMP/notary.json"' EXIT TERM INT
+          printf '%s' "$APPLE_API_KEY_P8" | base64 --decode > "$KEY"
+          chmod 600 "$KEY"
+          # A malformed key surfaces inside notarytool as an authentication
+          # error and sends you looking at the wrong secret; fail early instead.
+          head -1 "$KEY" | grep -q 'BEGIN PRIVATE KEY' \
+            || { echo "::error::APPLE_API_KEY_P8 did not decode to a PEM private key"; exit 1; }
+          for BIN in keyring.darwin-*.node; do
+            ditto -c -k --keepParent "$BIN" "$RUNNER_TEMP/upload.zip"
+            xcrun notarytool submit "$RUNNER_TEMP/upload.zip" \
+              --key "$KEY" --key-id "$APPLE_API_KEY_ID" \
+              --issuer "$APPLE_API_ISSUER_ID" --wait --timeout 45m \
+              --output-format json | tee "$RUNNER_TEMP/notary.json"
+            SUBMISSION_ID="$(jq -r '.id' "$RUNNER_TEMP/notary.json")"
+            STATUS="$(jq -r '.status' "$RUNNER_TEMP/notary.json")"
+            if [ "$STATUS" != "Accepted" ]; then
+              echo "::error::notarization of $BIN ended with status: $STATUS"
+              xcrun notarytool log "$SUBMISSION_ID" \
+                --key "$KEY" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER_ID" || true
+              exit 1
+            fi
+            # A bare .node cannot hold a stapled ticket, so Gatekeeper must
+            # find it online. spctl must run FIRST: it performs the online
+            # ticket lookup and caches the assessment, and codesign's
+            # `notarized` requirement only consults that local cache — on a
+            # fresh machine it fails even for a ticket issued long ago.
+            GATE_OK=""
+            for attempt in 1 2 3 4; do
+              if spctl -a -t open --context context:primary-signature -vvv "$BIN" 2>&1 \
+                   | grep -q 'source=Notarized Developer ID' \
+                && codesign -v -R='notarized' "$BIN"; then
+                GATE_OK=1
+                break
+              fi
+              echo "notarization gate attempt $attempt for $BIN failed; retrying in 20s"
+              sleep 20
+            done
+            [ -n "$GATE_OK" ] \
+              || { echo "::error::Gatekeeper still rejects the notarized $BIN"; exit 1; }
+          done
+      # overwrite replaces each artifact in place (delete-then-upload), which
+      # keeps the fixed names that test and publish consume. Both binaries
+      # reach this point only after every signature and notarization gate has
+      # passed; if an upload ever failed mid-job the originals would be gone
+      # and recovery would mean re-running the whole workflow.
+      - name: Upload signed aarch64 artifact
+        if: steps.release.outputs.match == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: bindings-aarch64-apple-darwin
+          path: keyring.darwin-arm64.node
+          if-no-files-found: error
+          overwrite: true
+      - name: Upload signed x86_64 artifact
+        if: steps.release.outputs.match == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: bindings-x86_64-apple-darwin
+          path: keyring.darwin-x64.node
+          if-no-files-found: error
+          overwrite: true
+      # Belt-and-braces cleanup for every failure path above: remove the
+      # keychain and any credential files no matter how the job ended.
+      - name: Clean up credentials
+        if: always() && steps.release.outputs.match == 'true'
+        run: |
+          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/cert.p12" "$RUNNER_TEMP/AuthKey.p8" \
+                "$RUNNER_TEMP/upload.zip" "$RUNNER_TEMP/notary.json" \
+                "$RUNNER_TEMP/codesign-info.txt"
   test:
     name: Test bindings on ${{ matrix.settings.host }} - node@${{ matrix.node }}
     needs:
       - build
+      # macOS legs must test the signed binaries on release runs. A skipped
+      # sign-macos (PRs, non-release pushes) must not skip the tests, but a
+      # failed one must block them — and with it the publish job.
+      - sign-macos
+    if: ${{ !failure() && !cancelled() }}
     strategy:
       fail-fast: false
       matrix:
