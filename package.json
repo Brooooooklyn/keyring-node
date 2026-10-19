@@ -53,6 +53,7 @@
     "format:toml": "taplo format",
     "format:rs": "cargo fmt",
     "lint": "oxlint",
+    "licenses": "node scripts/third-party-licenses.mjs",
     "prepublishOnly": "napi prepublish -t npm",
     "test": "ava -s",
     "preversion": "napi build --platform && git add .",

@@ -1,2 +1,3 @@
 target
 .yarn
+npm/*/LICENSE.third-party.md

@@ -50,6 +50,21 @@ jobs:
 
       - name: Clippy
         run: cargo clippy --locked
+
+      - name: Install cargo-about
+        uses: taiki-e/install-action@v2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          tool: cargo-about@0.9.2
+
+      # npm/<platform>/LICENSE.third-party.md are generated from Cargo.lock and
+      # shipped in the platform packages; fail if a Cargo.lock change left
+      # them stale. Fix with `yarn licenses` and commit the result.
+      - name: Check third-party license files
+        run: |
+          cargo fetch --locked
+          yarn licenses --check
   build:
     strategy:
       fail-fast: false

@@ -127,4 +127,6 @@ dist
 !.yarn/sdks
 !.yarn/versions
 
-/npm
+/npm/**
+!/npm/*/
+!/npm/*/LICENSE.third-party.md
