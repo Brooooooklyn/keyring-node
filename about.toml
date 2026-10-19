@@ -1,0 +1,3 @@
+accepted                  = ["Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-3-Clause", "ISC", "MIT", "Unicode-3.0", "Unlicense"]
+ignore-build-dependencies = true
+ignore-dev-dependencies   = true
