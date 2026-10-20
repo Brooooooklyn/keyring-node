@@ -3,6 +3,8 @@ import os from 'node:os'
 import test from 'ava'
 
 import { Entry, findCredentials, findCredentialsAsync, AsyncEntry } from '../index'
+import * as keytarCompat from '../keytar-compat.js'
+import * as keytarShim from '../keytar.js'
 
 const testPassword = 'napi.rs'
 const testService = 'keyring-node-test-service'
@@ -339,4 +341,92 @@ test('macos store option: store value is constrained to the MacosStore union at 
     new Entry(testService, testUser, { macos: { store: 'made-up-store' } })
   }
   t.pass()
+})
+
+const testKeytarService = 'keyring-node-test-service-keytar'
+const testKeytarUser = 'keytar-user'
+
+test('keytar compat: setPassword/getPassword round-trips', async (t) => {
+  await t.notThrowsAsync(() => keytarCompat.setPassword(testKeytarService, testKeytarUser, testPassword))
+  t.is(await keytarCompat.getPassword(testKeytarService, testKeytarUser), testPassword)
+  t.true(await keytarCompat.deletePassword(testKeytarService, testKeytarUser), 'clean up the keytar credential')
+})
+
+test('keytar compat: getPassword returns null when missing', async (t) => {
+  t.is(await keytarCompat.getPassword(testKeytarService, 'keytar-missing-user'), null)
+})
+
+test('keytar compat: deletePassword reports whether a credential was removed', async (t) => {
+  await keytarCompat.setPassword(testKeytarService, testKeytarUser, testPassword)
+  t.true(await keytarCompat.deletePassword(testKeytarService, testKeytarUser))
+  t.false(await keytarCompat.deletePassword(testKeytarService, testKeytarUser))
+})
+
+test('keytar compat: findCredentials and findPassword see keytar writes', async (t) => {
+  await keytarCompat.setPassword(testKeytarService, testKeytarUser, testPassword)
+  const credentials = await keytarCompat.findCredentials(testKeytarService)
+  t.deepEqual(credentials, [{ account: testKeytarUser, password: testPassword }])
+  t.is(await keytarCompat.findPassword(testKeytarService), testPassword)
+  t.true(await keytarCompat.deletePassword(testKeytarService, testKeytarUser), 'clean up the keytar credential')
+})
+
+test('keytar compat: setPassword overwrites an existing credential', async (t) => {
+  await keytarCompat.setPassword(testKeytarService, testKeytarUser, 'old-password')
+  await keytarCompat.setPassword(testKeytarService, testKeytarUser, testPassword)
+  t.is(await keytarCompat.getPassword(testKeytarService, testKeytarUser), testPassword)
+  const credentials = await keytarCompat.findCredentials(testKeytarService)
+  t.is(credentials.length, 1, 'overwriting must not create a second credential')
+  t.true(await keytarCompat.deletePassword(testKeytarService, testKeytarUser), 'clean up the keytar credential')
+})
+
+if (platform === 'darwin') {
+  // On macOS keytar and the default keychain store share the same storage
+  // identity, so the two APIs must see each other's credentials.
+  test('keytar compat: interoperates with Entry on macOS', async (t) => {
+    await keytarCompat.setPassword(testKeytarService, testKeytarUser, testPassword)
+    t.is(new Entry(testKeytarService, testKeytarUser).getPassword(), testPassword)
+    const entry = new Entry(testKeytarService, 'keytar-entry-user')
+    entry.setPassword(testPassword)
+    t.is(await keytarCompat.getPassword(testKeytarService, 'keytar-entry-user'), testPassword)
+    t.true(await keytarCompat.deletePassword(testKeytarService, testKeytarUser), 'clean up the keytar credential')
+    t.true(entry.deleteCredential(), 'clean up the entry credential')
+  })
+
+  // Secrets are arbitrary bytes, so enumerating them must not assume UTF-8.
+  test('findCredentials survives a non-UTF-8 secret on macOS', async (t) => {
+    const binaryService = 'keyring-node-test-service-binary-find'
+    const entry = new Entry(binaryService, testUser)
+    entry.setSecret(new Uint8Array([0x80, 0xff, 0x41, 0x42]))
+    const credentials = findCredentials(binaryService)
+    t.is(credentials.length, 1)
+    t.is(credentials[0].account, testUser)
+    const keytarCredentials = await keytarCompat.findCredentials(binaryService)
+    t.is(keytarCredentials.length, 1)
+    t.true(entry.deleteCredential(), 'clean up the binary credential')
+  })
+}
+
+test("keytar compat: validates parameters with keytar's exact error messages", (t) => {
+  // node-keytar's own test suite asserts these messages verbatim; the compat
+  // layer passes that suite, so the messages are part of the contract.
+  const bad = {} as any
+  t.throws(() => keytarCompat.getPassword(bad, 'u'), { message: "Parameter 'service' must be a string" })
+  t.throws(() => keytarCompat.getPassword('s', bad), { message: "Parameter 'username' must be a string" })
+  t.throws(() => keytarCompat.setPassword('s', 'u', bad), { message: "Parameter 'password' must be a string" })
+  t.throws(() => keytarCompat.deletePassword(bad, 'u'), { message: "Parameter 'service' must be a string" })
+  t.throws(() => keytarCompat.findPassword(bad), { message: "Parameter 'service' must be a string" })
+  t.throws(() => keytarCompat.findCredentials(bad), { message: "Parameter 'service' must be a string" })
+})
+
+const testKeytarShimService = 'keyring-node-test-service-keytar-shim'
+
+test('keytar shim: round-trips through Entry storage on every platform', async (t) => {
+  // The original keytar.js keeps keytar's API shape but stores through
+  // AsyncEntry, so it must interoperate with Entry everywhere, exactly as
+  // in 2.1.x.
+  await t.notThrowsAsync(() => keytarShim.setPassword(testKeytarShimService, testKeytarUser, testPassword))
+  t.is(await keytarShim.getPassword(testKeytarShimService, testKeytarUser), testPassword)
+  t.is(new Entry(testKeytarShimService, testKeytarUser).getPassword(), testPassword)
+  t.true(await keytarShim.deletePassword(testKeytarShimService, testKeytarUser))
+  t.is(await keytarShim.getPassword(testKeytarShimService, testKeytarUser), null)
 })

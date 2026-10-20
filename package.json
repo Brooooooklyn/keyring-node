@@ -3,6 +3,31 @@
   "version": "2.1.2",
   "description": "https://github.com/hwchen/keyring-rs Node.js binding via https://napi.rs",
   "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./index.js": "./index.js",
+    "./keytar": {
+      "types": "./keytar.d.ts",
+      "default": "./keytar.js"
+    },
+    "./keytar.js": {
+      "types": "./keytar.d.ts",
+      "default": "./keytar.js"
+    },
+    "./keytar-compat": {
+      "types": "./keytar-compat.d.ts",
+      "default": "./keytar-compat.js"
+    },
+    "./keytar-compat.js": {
+      "types": "./keytar-compat.d.ts",
+      "default": "./keytar-compat.js"
+    },
+    "./package.json": "./package.json"
+  },
   "repository": "https://github.com/Brooooooklyn/keyring-node",
   "license": "MIT",
   "keywords": [
@@ -17,7 +42,9 @@
     "index.d.ts",
     "index.js",
     "keytar.js",
-    "keytar.d.ts"
+    "keytar.d.ts",
+    "keytar-compat.js",
+    "keytar-compat.d.ts"
   ],
   "napi": {
     "binaryName": "keyring",

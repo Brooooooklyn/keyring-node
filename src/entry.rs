@@ -189,7 +189,7 @@ pub fn find_credentials_async(
 }
 
 #[cfg(target_os = "macos")]
-fn find_credentials_(
+pub(crate) fn find_credentials_(
   service: &str,
   _target: Option<String>,
 ) -> std::result::Result<Vec<(String, String)>, anyhow::Error> {
