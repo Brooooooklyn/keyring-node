@@ -279,9 +279,12 @@ fn find_credentials_(
             if let Ok(password) =
               security_framework::passwords::get_generic_password(service, &account)
             {
-              return Some((account.to_string(), unsafe {
-                String::from_utf8_unchecked(password)
-              }));
+              // The secret may hold arbitrary bytes (e.g. written via
+              // setSecret), so a lossy conversion is required for soundness.
+              return Some((
+                account.to_string(),
+                String::from_utf8_lossy(&password).into_owned(),
+              ));
             }
           }
         }
@@ -292,9 +295,12 @@ fn find_credentials_(
             if let Ok(password) =
               security_framework::passwords::get_generic_password(service, &account)
             {
-              return Some((account.to_string(), unsafe {
-                String::from_utf8_unchecked(password)
-              }));
+              // The secret may hold arbitrary bytes (e.g. written via
+              // setSecret), so a lossy conversion is required for soundness.
+              return Some((
+                account.to_string(),
+                String::from_utf8_lossy(&password).into_owned(),
+              ));
             }
           }
         }
@@ -383,9 +389,7 @@ fn find_credentials_(
   };
   use windows::core::PCWSTR;
 
-  fn to_wstr(s: &str) -> Vec<u16> {
-    s.encode_utf16().chain(std::iter::once(0)).collect()
-  }
+  use crate::windows_util::{from_wstr, to_wstr};
 
   fn extract_password(credential: &CREDENTIALW) -> std::result::Result<String, anyhow::Error> {
     // get password blob
@@ -404,17 +408,6 @@ fn find_credentials_(
     String::from_utf16(&blob_u16).map_err(anyhow::Error::from)
   }
 
-  unsafe fn from_wstr(ws: *const u16) -> String {
-    // null pointer case, return empty string
-    if ws.is_null() {
-      return String::new();
-    }
-    // this code from https://stackoverflow.com/a/48587463/558006
-    let len = (0..).take_while(|&i| unsafe { *ws.offset(i) } != 0).count();
-    let slice = unsafe { std::slice::from_raw_parts(ws, len) };
-    String::from_utf16_lossy(slice)
-  }
-
   unsafe {
     let mut count: u32 = 0;
     let mut p_credentials: *mut *mut CREDENTIALW = std::ptr::null_mut();
@@ -427,7 +420,8 @@ fn find_credentials_(
       &mut count,
       &mut p_credentials,
     ) {
-      CredFree(p_credentials.cast());
+      // On failure the output buffer was never allocated, so there is
+      // nothing to CredFree (and the pointer may still be null).
       if err == ERROR_NOT_FOUND.to_hresult().into() {
         return Ok(vec![]);
       } else {
