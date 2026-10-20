@@ -43,6 +43,31 @@ description, so distinct targets keep distinct credentials.
 > management facility "is completely in-memory and will not persist across reboots". Prefer
 > `secret-service` for credentials that must survive a restart.
 
+# macOS backend selection
+
+On macOS, `Entry` and `AsyncEntry` use the legacy file-based
+[keychain](https://crates.io/crates/apple-native-keyring-store) by default. You can pin an entry to a
+specific store the same way as on Linux (the option is accepted on every platform but only meaningful
+on macOS):
+
+```js
+new Entry('my_service', 'my_name', { macos: { store: 'keychain' } }) // the file-based keychain (default)
+new Entry('my_service', 'my_name', { macos: { store: 'protected' } }) // the data-protection keychain
+```
+
+The `protected` store writes items to the data-protection keychain
+(`kSecUseDataProtectionKeychain`), the modern store whose items are protected by the device
+passcode / Secure Enclave policies.
+
+- The calling process must be code-signed with an application identifier (an app bundle with a
+  provisioning profile, or a signed binary with the right entitlements). Unsigned processes — plain
+  `node` included — get "A required entitlement isn't present" from the OS on every operation.
+- `withTarget` is not supported with the `protected` store and throws: on macOS the target selects a
+  legacy keychain file, which has no meaning in the data-protection keychain.
+- `service` and `username` must be non-empty: an empty string acts as a wildcard during lookup.
+- `findCredentials` searches the legacy keychains only; it does not see items stored in the
+  data-protection keychain.
+
 # Bundled Rust dependencies
 
 The prebuilt `.node` binaries are built with `--locked` from the committed [`Cargo.lock`](./Cargo.lock), and with

@@ -22,7 +22,7 @@ windows                      = { version = "0.62", features = ["Win32", "Win32_S
 windows-native-keyring-store = "1.0.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-apple-native-keyring-store = { version = "1.0.0", features = ["keychain"] }
+apple-native-keyring-store = { version = "1.0.0", features = ["keychain", "protected"] }
 core-foundation            = "0.10"
 security-framework         = "3.0"
 security-framework-sys     = "2.12"

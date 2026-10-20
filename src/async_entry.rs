@@ -20,8 +20,8 @@ impl AsyncEntry {
   /// The default credential builder is used.
   ///
   /// An optional [EntryOptions] bag controls platform-specific behavior; it is
-  /// accepted on all platforms but currently only used on Linux, where it can
-  /// pin the entry to a specific credential store.
+  /// accepted on all platforms but currently only used on Linux and macOS,
+  /// where it can pin the entry to a specific credential store.
   pub fn new(service: String, username: String, options: Option<EntryOptions>) -> Result<Self> {
     Ok(Self {
       inner: Arc::new(create_entry(&service, &username, None, options.as_ref())?),
@@ -34,8 +34,8 @@ impl AsyncEntry {
   /// The default credential builder is used.
   ///
   /// An optional [EntryOptions] bag controls platform-specific behavior; it is
-  /// accepted on all platforms but currently only used on Linux, where it can
-  /// pin the entry to a specific credential store.
+  /// accepted on all platforms but currently only used on Linux and macOS,
+  /// where it can pin the entry to a specific credential store.
   pub fn with_target(
     target: String,
     service: String,

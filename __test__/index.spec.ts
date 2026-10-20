@@ -56,7 +56,7 @@ test('Should create and set secret async', async (t) => {
 test('Should handle binary data correctly with setSecret/getSecret', (t) => {
   const entry = new Entry(testService, testUser)
   // Test with binary data that includes null bytes and high values
-  const binaryData = new Uint8Array([0x00, 0x01, 0x7F, 0x80, 0xFF, 0xDE, 0xAD, 0xBE, 0xEF])
+  const binaryData = new Uint8Array([0x00, 0x01, 0x7f, 0x80, 0xff, 0xde, 0xad, 0xbe, 0xef])
   t.notThrows(() => entry.setSecret(binaryData))
   const retrievedSecret = entry.getSecret()
   t.truthy(retrievedSecret)
@@ -67,7 +67,7 @@ test('Should handle binary data correctly with setSecret/getSecret', (t) => {
 test('Should handle binary data correctly with setSecret/getSecret async', async (t) => {
   const entry = new AsyncEntry(testService, testUser)
   // Test with binary data that includes null bytes and high values
-  const binaryData = new Uint8Array([0x00, 0x01, 0x7F, 0x80, 0xFF, 0xDE, 0xAD, 0xBE, 0xEF])
+  const binaryData = new Uint8Array([0x00, 0x01, 0x7f, 0x80, 0xff, 0xde, 0xad, 0xbe, 0xef])
   await t.notThrowsAsync(() => entry.setSecret(binaryData))
   const retrievedSecret = await entry.getSecret()
   t.truthy(retrievedSecret)
@@ -242,6 +242,101 @@ test('linux store option: store value is constrained to the LinuxStore union at 
   if (false) {
     // @ts-expect-error 'made-up-store' is not a member of the LinuxStore union
     new Entry(testService, testUser, { linux: { store: 'made-up-store' } })
+  }
+  t.pass()
+})
+
+const testMacosKeychainService = 'keyring-node-test-service-macos-keychain'
+const testMacosProtectedService = 'keyring-node-test-service-macos-protected'
+
+if (platform === 'darwin') {
+  test('macos store option: keychain round-trips', (t) => {
+    const entry = new Entry(testMacosKeychainService, testUser, { macos: { store: 'keychain' } })
+    t.notThrows(() => entry.setPassword(testPassword))
+    t.is(entry.getPassword(), testPassword)
+    t.true(entry.deleteCredential(), 'clean up the pinned-store credential')
+  })
+
+  test('macos store option: AsyncEntry keychain round-trips', async (t) => {
+    const entry = new AsyncEntry(testMacosKeychainService, testUser, { macos: { store: 'keychain' } })
+    await t.notThrowsAsync(() => entry.setPassword(testPassword))
+    t.is(await entry.getPassword(), testPassword)
+    t.true(await entry.deleteCredential(), 'clean up the pinned-store credential')
+  })
+
+  test('macos store option: protected round-trips when the process is entitled', (t) => {
+    const entry = new Entry(testMacosProtectedService, testUser, { macos: { store: 'protected' } })
+    try {
+      entry.setPassword(testPassword)
+    } catch (err) {
+      // The data-protection keychain requires the caller to be code-signed
+      // with an application identifier; plain node processes are not, and
+      // get `errSecMissingEntitlement` from the OS instead.
+      t.regex((err as Error).message, /entitlement/i, 'unentitled processes get the entitlement error')
+      return
+    }
+    t.is(entry.getPassword(), testPassword)
+    t.true(entry.deleteCredential(), 'clean up the pinned-store credential')
+  })
+
+  test('macos store option: AsyncEntry protected round-trips when the process is entitled', async (t) => {
+    const entry = new AsyncEntry(testMacosProtectedService, testUser, { macos: { store: 'protected' } })
+    try {
+      await entry.setPassword(testPassword)
+    } catch (err) {
+      // The data-protection keychain requires the caller to be code-signed
+      // with an application identifier; plain node processes are not, and
+      // get `errSecMissingEntitlement` from the OS instead.
+      t.regex((err as Error).message, /entitlement/i, 'unentitled processes get the entitlement error')
+      return
+    }
+    t.is(await entry.getPassword(), testPassword)
+    t.true(await entry.deleteCredential(), 'clean up the pinned-store credential')
+  })
+
+  test('macos store option: protected store rejects target', (t) => {
+    // target maps to the file-based keychain's `keychain` modifier (a legacy
+    // keychain file name), which has no meaning in the protected store, so it
+    // is rejected rather than silently ignored.
+    t.throws(
+      () => Entry.withTarget(testTarget!, testMacosProtectedService, testUser, { macos: { store: 'protected' } }),
+      { message: /target is not supported/ },
+    )
+    t.throws(
+      () => AsyncEntry.withTarget(testTarget!, testMacosProtectedService, testUser, { macos: { store: 'protected' } }),
+      { message: /target is not supported/ },
+    )
+  })
+} else {
+  test('macos store option is accepted and ignored on non-macOS platforms', (t) => {
+    const entry = new Entry(testService, testUser, { macos: { store: 'protected' } })
+    t.notThrows(() => entry.setPassword(testPassword))
+    t.is(entry.getPassword(), testPassword)
+    t.notThrows(() => entry.deleteCredential())
+  })
+
+  test('macos store option is accepted and ignored on non-macOS platforms async', async (t) => {
+    const entry = new AsyncEntry(testService, testUser, { macos: { store: 'keychain' } })
+    await t.notThrowsAsync(() => entry.setPassword(testPassword))
+    t.is(await entry.getPassword(), testPassword)
+    await t.notThrowsAsync(() => entry.deleteCredential())
+  })
+}
+
+test('macos store option: unknown store values are rejected', (t) => {
+  // napi-rs validates the string_enum at the JS boundary, before any
+  // platform-specific logic runs.
+  t.throws(
+    () => new Entry(testService, testUser, { macos: { store: 'made-up-store' } } as any),
+    { message: /does not match any variant of enum/ },
+    'throws on a store value outside the MacosStore union',
+  )
+})
+
+test('macos store option: store value is constrained to the MacosStore union at compile time', (t) => {
+  if (false) {
+    // @ts-expect-error 'made-up-store' is not a member of the MacosStore union
+    new Entry(testService, testUser, { macos: { store: 'made-up-store' } })
   }
   t.pass()
 })

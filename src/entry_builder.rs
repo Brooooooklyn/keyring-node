@@ -11,8 +11,13 @@ use crate::options::EntryOptions;
 /// store: the named store is constructed directly and any failure to do so is
 /// propagated, so requiring an unavailable store throws instead of falling
 /// back. Without the option, the default auto-fallback selection is used.
+/// On macOS, `options.macos.store` likewise pins the entry to the file-based
+/// keychain or to the data-protection keychain.
 /// On all other platforms the options are accepted and ignored.
-#[cfg_attr(not(target_os = "linux"), allow(unused_variables))]
+#[cfg_attr(
+  not(any(target_os = "linux", target_os = "macos")),
+  allow(unused_variables)
+)]
 pub(crate) fn create_entry(
   service: &str,
   user: &str,
@@ -25,6 +30,14 @@ pub(crate) fn create_entry(
     .and_then(|l| l.store.as_ref())
   {
     return create_entry_with_linux_store(service, user, target, store);
+  }
+
+  #[cfg(target_os = "macos")]
+  if let Some(store) = options
+    .and_then(|o| o.macos.as_ref())
+    .and_then(|m| m.store.as_ref())
+  {
+    return create_entry_with_macos_store(service, user, target, store);
   }
 
   #[cfg(target_os = "linux")]
@@ -109,6 +122,47 @@ fn setup_linux_store() -> anyhow::Result<()> {
   let builder = crate::linux_credential_builder::LinuxCredentialBuilder::new()?;
   keyring_core::set_default_store(builder.get_store());
   Ok(())
+}
+
+/// Build an entry directly from the store pinned in the options, failing
+/// loudly if that store cannot be constructed.
+///
+/// `target` maps to the file-based keychain's `keychain` modifier (a legacy
+/// keychain file name). The protected store's only modifier is
+/// `access-policy`, so a `target` there is rejected rather than silently
+/// ignored.
+#[cfg(target_os = "macos")]
+fn create_entry_with_macos_store(
+  service: &str,
+  user: &str,
+  target: Option<&str>,
+  store: &crate::options::MacosStore,
+) -> Result<keyring_core::Entry> {
+  use keyring_core::api::CredentialStoreApi;
+
+  use crate::options::MacosStore;
+
+  match store {
+    MacosStore::Keychain => {
+      let store =
+        apple_native_keyring_store::keychain::Store::new_with_configuration(&HashMap::new())
+          .map_err(anyhow::Error::from)?;
+      let modifiers = target.map(|t| HashMap::from([("keychain", t)]));
+      store
+        .build(service, user, modifiers.as_ref())
+        .map_err(anyhow::Error::from)
+    }
+    MacosStore::Protected => {
+      if target.is_some() {
+        anyhow::bail!("target is not supported with the macOS protected store");
+      }
+      let store =
+        apple_native_keyring_store::protected::Store::new().map_err(anyhow::Error::from)?;
+      store
+        .build(service, user, None)
+        .map_err(anyhow::Error::from)
+    }
+  }
 }
 
 #[cfg(target_os = "macos")]
