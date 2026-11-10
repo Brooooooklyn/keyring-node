@@ -166,7 +166,7 @@ jobs:
         if: matrix.settings.target == 'i686-pc-windows-msvc'
         with:
           # Node.js 22 is the last release with Windows x86 builds.
-          node-version: 22
+          node-version: 26
           architecture: x86
       # --locked builds exactly the committed Cargo.lock, and cargo-auditable
       # embeds that dependency list into the .node binary (`.dep-v0` section),
