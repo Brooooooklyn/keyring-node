@@ -43,6 +43,38 @@ description, so distinct targets keep distinct credentials.
 > management facility "is completely in-memory and will not persist across reboots". Prefer
 > `secret-service` for credentials that must survive a restart.
 
+# Error codes
+
+Every error thrown by this package carries a stable, machine-readable `code` property — one of the
+[`keyring_core::Error`](https://docs.rs/keyring-core) variant names:
+
+| `code` | Meaning |
+| --- | --- |
+| `NoStorageAccess` | The credential store exists but could not be used (locked, permission denied, no D-Bus session). |
+| `NoEntry` | Reserved — a missing entry resolves to `null`/`false` rather than throwing, so this code normally never surfaces. |
+| `PlatformFailure` | The store answered with an error (IPC failure, daemon crashed). |
+| `Ambiguous` | More than one platform credential matches the entry. |
+| `BadEncoding` | Stored secret bytes are not valid UTF-8. |
+| `BadDataFormat` | Stored attributes are malformed. |
+| `BadStoreFormat` | The store's own persisted format is malformed. |
+| `TooLong` | An attribute exceeds a platform limit. |
+| `Invalid` | An attribute value is invalid for this store. |
+| `NoDefaultStore` | No credential store is available on this platform. |
+| `NotSupportedByStore` | The operation is not implemented by the selected store. |
+| `GenericFailure` | Anything not originating in `keyring_core` (and future variants) keeps the pre-3.x code. |
+
+Codes are a compatibility contract: the code for a given error kind will not change between releases,
+so consumers can branch on `error.code`. `error.message` remains the human-readable text and may
+change at any time — do not match on it.
+
+```js
+try {
+  await entry.getPassword()
+} catch (err) {
+  if (err.code === 'NoStorageAccess') /* show "unlock your keychain" */
+}
+```
+
 # Bundled Rust dependencies
 
 The prebuilt `.node` binaries are built with `--locked` from the committed [`Cargo.lock`](./Cargo.lock), and with
