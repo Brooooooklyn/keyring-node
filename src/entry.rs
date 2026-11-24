@@ -3,7 +3,7 @@ use napi_derive::napi;
 
 use crate::entry_builder::create_entry;
 use crate::options::EntryOptions;
-use crate::result::{into_deleted, into_optional};
+use crate::result::{into_deleted, into_napi, into_optional, reject_coded};
 
 #[napi]
 pub struct Entry {
@@ -20,9 +20,13 @@ impl Entry {
   /// An optional [EntryOptions] bag controls platform-specific behavior; it is
   /// accepted on all platforms but currently only used on Linux, where it can
   /// pin the entry to a specific credential store.
-  pub fn new(service: String, username: String, options: Option<EntryOptions>) -> Result<Self> {
+  pub fn new(
+    service: String,
+    username: String,
+    options: Option<EntryOptions>,
+  ) -> Result<Self, String> {
     Ok(Self {
-      inner: create_entry(&service, &username, None, options.as_ref())?,
+      inner: into_napi(create_entry(&service, &username, None, options.as_ref()))?,
     })
   }
 
@@ -39,9 +43,14 @@ impl Entry {
     service: String,
     username: String,
     options: Option<EntryOptions>,
-  ) -> Result<Self> {
+  ) -> Result<Self, String> {
     Ok(Self {
-      inner: create_entry(&service, &username, Some(&target), options.as_ref())?,
+      inner: into_napi(create_entry(
+        &service,
+        &username,
+        Some(&target),
+        options.as_ref(),
+      ))?,
     })
   }
 
@@ -53,11 +62,8 @@ impl Entry {
   /// that matches this entry.  This can only happen
   /// on some platforms, and then only if a third-party
   /// application wrote the ambiguous credential.
-  pub fn set_password(&self, password: String) -> Result<()> {
-    self
-      .inner
-      .set_password(&password)
-      .map_err(anyhow::Error::from)?;
+  pub fn set_password(&self, password: String) -> Result<(), String> {
+    into_napi(self.inner.set_password(&password))?;
     Ok(())
   }
 
@@ -69,8 +75,8 @@ impl Entry {
   /// that matches this entry.  This can only happen
   /// on some platforms, and then only if a third-party
   /// application wrote the ambiguous credential.
-  pub fn set_secret(&self, secret: &[u8]) -> Result<()> {
-    self.inner.set_secret(secret).map_err(anyhow::Error::from)?;
+  pub fn set_secret(&self, secret: &[u8]) -> Result<(), String> {
+    into_napi(self.inner.set_secret(secret))?;
     Ok(())
   }
 
@@ -84,7 +90,7 @@ impl Entry {
   /// that matches this entry.  This can only happen
   /// on some platforms, and then only if a third-party
   /// application wrote the ambiguous credential.
-  pub fn get_password(&self) -> Result<Option<String>> {
+  pub fn get_password(&self) -> Result<Option<String>, String> {
     into_optional(self.inner.get_password())
   }
 
@@ -101,7 +107,7 @@ impl Entry {
   /// that matches this entry.  This can only happen
   /// on some platforms, and then only if a third-party
   /// application wrote the ambiguous credential.
-  pub fn get_secret(&self) -> Result<Option<Vec<u8>>> {
+  pub fn get_secret(&self) -> Result<Option<Vec<u8>>, String> {
     into_optional(self.inner.get_secret())
   }
 
@@ -125,13 +131,13 @@ impl Entry {
   /// Note: This does _not_ affect the lifetime of the [Entry]
   /// structure, which is controlled by Rust.  It only
   /// affects the underlying credential store.
-  pub fn delete_credential(&self) -> Result<bool> {
+  pub fn delete_credential(&self) -> Result<bool, String> {
     into_deleted(self.inner.delete_credential())
   }
 
   #[napi]
   /// Alias for `deleteCredential`
-  pub fn delete_password(&self) -> Result<bool> {
+  pub fn delete_password(&self) -> Result<bool, String> {
     self.delete_credential()
   }
 }
@@ -149,33 +155,41 @@ pub struct FindCredentials {
 
 #[napi]
 impl Task for FindCredentials {
-  type Output = Vec<Credential>;
+  // Task::compute can only fail with a `Status`-typed error, so the coded
+  // `Error<String>` rides inside `Output` and `resolve` rejects with it
+  // through `reject_coded`.
+  type Output = std::result::Result<Vec<Credential>, Error<String>>;
   type JsValue = Vec<Credential>;
 
   #[inline]
   fn compute(&mut self) -> Result<Self::Output> {
     Ok(
-      find_credentials_(&self.service, self.target.clone())?
-        .into_iter()
-        .map(|(account, password)| Credential { account, password })
-        .collect(),
+      into_napi(find_credentials_(&self.service, self.target.clone())).map(|found| {
+        found
+          .into_iter()
+          .map(|(account, password)| Credential { account, password })
+          .collect()
+      }),
     )
   }
 
-  fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {
-    Ok(output)
+  fn resolve(&mut self, env: Env, output: Self::Output) -> Result<Self::JsValue> {
+    output.or_else(|err| reject_coded(&env, err))
   }
 }
 
 #[napi]
 /// find credentials by service name
-pub fn find_credentials(service: String, target: Option<String>) -> Result<Vec<Credential>> {
-  Ok(
-    find_credentials_(&service, target)?
+pub fn find_credentials(
+  service: String,
+  target: Option<String>,
+) -> Result<Vec<Credential>, String> {
+  into_napi(find_credentials_(&service, target)).map(|found| {
+    found
       .into_iter()
       .map(|(account, password)| Credential { account, password })
-      .collect(),
-  )
+      .collect()
+  })
 }
 
 #[napi]

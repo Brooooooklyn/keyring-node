@@ -5,7 +5,7 @@ use napi_derive::napi;
 
 use crate::entry_builder::create_entry;
 use crate::options::EntryOptions;
-use crate::result::{into_deleted, into_optional};
+use crate::result::{into_deleted, into_napi, into_optional, reject_coded};
 
 #[napi]
 pub struct AsyncEntry {
@@ -22,9 +22,18 @@ impl AsyncEntry {
   /// An optional [EntryOptions] bag controls platform-specific behavior; it is
   /// accepted on all platforms but currently only used on Linux, where it can
   /// pin the entry to a specific credential store.
-  pub fn new(service: String, username: String, options: Option<EntryOptions>) -> Result<Self> {
+  pub fn new(
+    service: String,
+    username: String,
+    options: Option<EntryOptions>,
+  ) -> Result<Self, String> {
     Ok(Self {
-      inner: Arc::new(create_entry(&service, &username, None, options.as_ref())?),
+      inner: Arc::new(into_napi(create_entry(
+        &service,
+        &username,
+        None,
+        options.as_ref(),
+      ))?),
     })
   }
 
@@ -41,14 +50,14 @@ impl AsyncEntry {
     service: String,
     username: String,
     options: Option<EntryOptions>,
-  ) -> Result<Self> {
+  ) -> Result<Self, String> {
     Ok(Self {
-      inner: Arc::new(create_entry(
+      inner: Arc::new(into_napi(create_entry(
         &service,
         &username,
         Some(&target),
         options.as_ref(),
-      )?),
+      ))?),
     })
   }
 
@@ -189,15 +198,18 @@ pub struct PasswordTask {
 
 #[napi]
 impl Task for PasswordTask {
-  type Output = Option<String>;
+  // Task::compute can only fail with a `Status`-typed error, so the coded
+  // `Error<String>` rides inside `Output` and `resolve` rejects with it
+  // through `reject_coded`.
+  type Output = std::result::Result<Option<String>, Error<String>>;
   type JsValue = Option<String>;
 
   fn compute(&mut self) -> Result<Self::Output> {
-    into_optional(self.inner.get_password())
+    Ok(into_optional(self.inner.get_password()))
   }
 
-  fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {
-    Ok(output)
+  fn resolve(&mut self, env: Env, output: Self::Output) -> Result<Self::JsValue> {
+    output.or_else(|err| reject_coded(&env, err))
   }
 }
 
@@ -208,42 +220,35 @@ pub struct SecretTask {
 
 #[napi]
 impl Task for SecretTask {
-  type Output = Option<Vec<u8>>;
+  type Output = std::result::Result<Option<Vec<u8>>, Error<String>>;
   type JsValue = Option<Vec<u8>>;
 
   fn compute(&mut self) -> Result<Self::Output> {
-    into_optional(self.inner.get_secret())
+    Ok(into_optional(self.inner.get_secret()))
   }
 
-  fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {
-    Ok(output)
+  fn resolve(&mut self, env: Env, output: Self::Output) -> Result<Self::JsValue> {
+    output.or_else(|err| reject_coded(&env, err))
   }
 }
 
 // Generic task for operations that don't return values or return booleans
 #[napi]
 impl Task for EntryTask {
-  type Output = Option<bool>;
+  type Output = std::result::Result<Option<bool>, Error<String>>;
   type JsValue = Option<bool>;
 
   fn compute(&mut self) -> Result<Self::Output> {
-    match self.kind {
+    Ok(match self.kind {
       TaskKind::DeleteCredential => into_deleted(self.inner.delete_credential()).map(Some),
       TaskKind::SetPassword(ref password) => {
-        self
-          .inner
-          .set_password(password)
-          .map_err(anyhow::Error::from)?;
-        Ok(None)
+        into_napi(self.inner.set_password(password)).map(|()| None)
       }
-      TaskKind::SetSecret(ref secret) => {
-        self.inner.set_secret(secret).map_err(anyhow::Error::from)?;
-        Ok(None)
-      }
-    }
+      TaskKind::SetSecret(ref secret) => into_napi(self.inner.set_secret(secret)).map(|()| None),
+    })
   }
 
-  fn resolve(&mut self, _env: Env, output: Self::Output) -> Result<Self::JsValue> {
-    Ok(output)
+  fn resolve(&mut self, env: Env, output: Self::Output) -> Result<Self::JsValue> {
+    output.or_else(|err| reject_coded(&env, err))
   }
 }

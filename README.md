@@ -43,6 +43,50 @@ description, so distinct targets keep distinct credentials.
 > management facility "is completely in-memory and will not persist across reboots". Prefer
 > `secret-service` for credentials that must survive a restart.
 
+# Error codes
+
+Errors from the credential store carry a machine-readable `code` property: the name of the
+[`keyring_core::Error`](https://docs.rs/keyring-core/latest/keyring_core/error/enum.Error.html) variant, or
+`GenericFailure` for anything else.
+
+| `code`                | Meaning                                                                                                                      |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `NoStorageAccess`     | The store is locked, access was denied, or an unlock prompt was dismissed.                                                   |
+| `PlatformFailure`     | The platform store returned an error (for example no D-Bus session).                                                         |
+| `NoEntry`             | Not thrown by `get*`/`delete*` (they return `null`/`false`). `set*` can throw it on keyutils if the session keyring expired. |
+| `Ambiguous`           | More than one platform credential matches the entry.                                                                         |
+| `BadEncoding`         | `getPassword` found a secret that is not valid text. `getSecret` returns the raw bytes.                                      |
+| `BadDataFormat`       | A stored secret blob is not in the format the store expects.                                                                 |
+| `BadStoreFormat`      | The store's own persisted data is malformed.                                                                                 |
+| `TooLong`             | A value is longer than the platform allows.                                                                                  |
+| `Invalid`             | The store rejected a value (for example an empty service name on macOS).                                                     |
+| `NoDefaultStore`      | No default store is set. Not expected from this package.                                                                     |
+| `NotSupportedByStore` | The store does not support the operation.                                                                                    |
+| `GenericFailure`      | The error did not come from `keyring_core`, for example a `findCredentials` failure.                                         |
+
+Errors raised by napi-rs itself keep their own codes. A bad argument throws `InvalidArg`, `StringExpected`, and so on.
+When an `AbortSignal` cancels a call, the promise rejects with an `AbortError` whose `code` is `Cancelled`. A call
+that has already started is not cancelled.
+
+The code strings will not be renamed. Which code a platform condition maps to follows the keyring-core store crates.
+`error.message` is human-readable text and may change, so branch on `code`, not on the message.
+
+```js
+import { AsyncEntry } from '@napi-rs/keyring'
+
+const entry = new AsyncEntry('my_service', 'my_name')
+try {
+  const password = await entry.getPassword()
+  // use password
+} catch (err) {
+  if (err.code === 'NoStorageAccess') {
+    console.error('Unlock your keychain and try again')
+  } else {
+    throw err
+  }
+}
+```
+
 # Bundled Rust dependencies
 
 The prebuilt `.node` binaries are built with `--locked` from the committed [`Cargo.lock`](./Cargo.lock), and with
