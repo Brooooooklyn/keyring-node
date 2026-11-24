@@ -5,7 +5,7 @@ use napi_derive::napi;
 
 use crate::entry_builder::create_entry;
 use crate::options::EntryOptions;
-use crate::result::{into_deleted, into_napi, into_optional, throw_coded};
+use crate::result::{into_deleted, into_napi, into_optional, reject_coded};
 
 #[napi]
 pub struct AsyncEntry {
@@ -198,9 +198,9 @@ pub struct PasswordTask {
 
 #[napi]
 impl Task for PasswordTask {
-  // Task::compute must fail with a `Status`-typed error, so the coded
-  // `Error<String>` rides inside `Output` and `resolve` throws it — the
-  // JS promise still rejects with the coded error.
+  // Task::compute can only fail with a `Status`-typed error, so the coded
+  // `Error<String>` rides inside `Output` and `resolve` rejects with it
+  // through `reject_coded`.
   type Output = std::result::Result<Option<String>, Error<String>>;
   type JsValue = Option<String>;
 
@@ -209,10 +209,7 @@ impl Task for PasswordTask {
   }
 
   fn resolve(&mut self, env: Env, output: Self::Output) -> Result<Self::JsValue> {
-    match output {
-      Ok(password) => Ok(password),
-      Err(err) => throw_coded(&env, err),
-    }
+    output.or_else(|err| reject_coded(&env, err))
   }
 }
 
@@ -231,10 +228,7 @@ impl Task for SecretTask {
   }
 
   fn resolve(&mut self, env: Env, output: Self::Output) -> Result<Self::JsValue> {
-    match output {
-      Ok(secret) => Ok(secret),
-      Err(err) => throw_coded(&env, err),
-    }
+    output.or_else(|err| reject_coded(&env, err))
   }
 }
 
@@ -255,9 +249,6 @@ impl Task for EntryTask {
   }
 
   fn resolve(&mut self, env: Env, output: Self::Output) -> Result<Self::JsValue> {
-    match output {
-      Ok(deleted) => Ok(deleted),
-      Err(err) => throw_coded(&env, err),
-    }
+    output.or_else(|err| reject_coded(&env, err))
   }
 }

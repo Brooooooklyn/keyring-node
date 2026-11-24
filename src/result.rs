@@ -2,11 +2,10 @@ use napi::bindgen_prelude::*;
 
 /// Stable, machine-readable identifier for each kind of keychain failure.
 ///
-/// Every error a `#[napi]` call surfaces carries one of these codes as
-/// `error.code` on the JavaScript side. Codes are an API contract: the code
-/// for a given error kind never changes, while `error.message` remains
-/// human-readable text that may change at any time — consumers should test
-/// `code`, never the message.
+/// Every keychain error this binding surfaces carries one of these codes as
+/// `error.code` on the JavaScript side. The code strings are never renamed,
+/// while `error.message` is human-readable text that may change at any time —
+/// consumers should test `code`, never the message.
 pub(crate) fn error_code(err: &keyring_core::Error) -> &'static str {
   use keyring_core::Error as E;
   match err {
@@ -27,22 +26,13 @@ pub(crate) fn error_code(err: &keyring_core::Error) -> &'static str {
   }
 }
 
-/// Convert a keychain error into a napi error carrying its stable
-/// [`error_code`]. The reason stays the error's `Display` text, so
-/// `error.message` is exactly what callers saw before.
-pub(crate) fn keyring_error(err: keyring_core::Error) -> Error<String> {
-  Error::new(error_code(&err).to_string(), err.to_string())
-}
-
 /// Convert any fallible result into one whose error is a coded napi error.
 ///
-/// When the anyhow chain contains a [`keyring_core::Error`] the error
-/// carries that variant's stable code — the first one found, so an
-/// error wrapped in `context` still reports its underlying kind. Every
-/// other error reports `GenericFailure`, exactly the status the
-/// `error_anyhow` conversion used before. The message and the `cause`
-/// chain are constructed the same way that conversion constructed them,
-/// so both are unchanged for callers.
+/// The code is the [`error_code`] of the first [`keyring_core::Error`] in
+/// the anyhow chain, so an error wrapped in `context` still reports its
+/// underlying kind; any other error reports `GenericFailure`. The message and
+/// the `cause` chain come from napi's own `From<anyhow::Error>`, so they are
+/// exactly what that conversion produced before.
 pub(crate) fn into_napi<T, E>(result: std::result::Result<T, E>) -> Result<T, String>
 where
   E: Into<anyhow::Error>,
@@ -53,37 +43,24 @@ where
       .chain()
       .find_map(|cause| cause.downcast_ref::<keyring_core::Error>())
       .map(error_code)
-      .unwrap_or("GenericFailure")
-      .to_string();
-    let mut chain = e.chain();
-    let mut error = Error::new(code, chain.next().unwrap().to_string());
-    // `cause` is typed `Box<Error<Status>>` — the chain is built as
-    // `Error<Status>` values, exactly what the error_anyhow conversion
-    // produced.
-    if let Some(first) = chain.next() {
-      let mut head = Error::new(Status::GenericFailure, first.to_string());
-      let mut current = &mut head;
-      for cause in chain {
-        current.cause = Some(Box::new(Error::new(
-          Status::GenericFailure,
-          cause.to_string(),
-        )));
-        current = current.cause.as_deref_mut().unwrap();
-      }
-      error.cause = Some(Box::new(head));
-    }
+      .unwrap_or("GenericFailure");
+    let base = Error::from(e);
+    let mut error = Error::new(code.to_string(), base.reason);
+    error.cause = base.cause;
     error
   })
 }
 
-/// Throw a coded error into `env`, returning the pending-exception marker
-/// the task machinery expects. `Task::compute` cannot return a non-`Status`
+/// Reject an async task's promise with a coded error.
+///
+/// `Task::compute` and `Task::resolve` can only fail with a `Status`-typed
 /// error, so async work carries the [`Error<String>`] in its `Output` and
-/// throws it here from `resolve` — the JS promise rejects with the coded
-/// error object.
-pub(crate) fn throw_coded<T>(env: &Env, err: Error<String>) -> Result<T> {
-  unsafe { JsError::from(err).throw_into(env.raw()) };
-  Err(Error::new(Status::PendingException, String::new()))
+/// `resolve` hands it here. The coded error is turned into a JS error object
+/// and returned as an error that references it; napi then rejects the promise
+/// with that same object. Throwing it instead would leave a pending exception,
+/// `napi_reject_deferred` would then fail, and the promise would never settle.
+pub(crate) fn reject_coded<T>(env: &Env, err: Error<String>) -> Result<T> {
+  Err(Error::from(JsError::from(err).into_unknown(*env)))
 }
 
 /// Convert a lookup result into an optional value.
@@ -97,7 +74,7 @@ pub(crate) fn into_optional<T>(result: keyring_core::Result<T>) -> Result<Option
   match result {
     Ok(value) => Ok(Some(value)),
     Err(keyring_core::Error::NoEntry) => Ok(None),
-    Err(error) => Err(keyring_error(error)),
+    Err(error) => into_napi(Err(error)),
   }
 }
 
@@ -113,18 +90,42 @@ pub(crate) fn into_deleted(result: keyring_core::Result<()>) -> Result<bool, Str
   match result {
     Ok(()) => Ok(true),
     Err(keyring_core::Error::NoEntry) => Ok(false),
-    Err(error) => Err(keyring_error(error)),
+    Err(error) => into_napi(Err(error)),
   }
 }
 
 #[cfg(test)]
 mod tests {
-  use super::{error_code, into_deleted, into_napi, into_optional, keyring_error};
+  use napi::Error;
+
+  use super::{error_code, into_deleted, into_napi, into_optional};
+
+  const INNER: &str = "credential store is locked";
 
   fn platform_error() -> keyring_core::Error {
-    keyring_core::Error::NoStorageAccess(Box::new(std::io::Error::other(
-      "credential store is locked",
-    )))
+    keyring_core::Error::NoStorageAccess(Box::new(std::io::Error::other(INNER)))
+  }
+
+  /// `(status, reason)` of an error and of every `cause` below it.
+  fn chain_of<S: AsRef<str>>(err: &Error<S>) -> Vec<(String, String)> {
+    let mut out = vec![(err.status.as_ref().to_string(), err.reason.clone())];
+    let mut cause = err.cause.as_deref();
+    while let Some(c) = cause {
+      out.push((c.status.as_ref().to_string(), c.reason.clone()));
+      cause = c.cause.as_deref();
+    }
+    out
+  }
+
+  /// `into_napi` must build the same chain as napi's `From<anyhow::Error>`,
+  /// except that the top status is the stable code.
+  fn assert_matches_napi(make: fn() -> anyhow::Error, code: &str) {
+    let ours = chain_of(&into_napi::<(), _>(Err(make())).unwrap_err());
+    let napi = chain_of(&Error::from(make()));
+    assert_eq!(ours.len(), napi.len());
+    assert_eq!(ours[0].0, code);
+    assert_eq!(ours[0].1, napi[0].1);
+    assert_eq!(ours[1..], napi[1..]);
   }
 
   #[test]
@@ -213,15 +214,6 @@ mod tests {
   }
 
   #[test]
-  fn keyring_error_keeps_message_and_sets_code() {
-    let source = platform_error();
-    let message = source.to_string();
-    let err = keyring_error(source);
-    assert_eq!(err.status, "NoStorageAccess");
-    assert_eq!(err.reason, message);
-  }
-
-  #[test]
   fn into_napi_codes_keyring_errors() {
     let source = platform_error();
     let message = source.to_string();
@@ -258,5 +250,41 @@ mod tests {
     // The outer context is the message; the code comes from the source.
     assert_eq!(err.status, "NoStorageAccess");
     assert_eq!(err.reason, "keychain read failed");
+  }
+
+  #[test]
+  fn into_napi_matches_napi_chain_for_keyring_errors() {
+    assert_matches_napi(
+      || {
+        anyhow::Error::from(platform_error())
+          .context("mid")
+          .context("outer")
+      },
+      "NoStorageAccess",
+    );
+  }
+
+  #[test]
+  fn into_napi_matches_napi_chain_for_other_errors() {
+    assert_matches_napi(
+      || anyhow::anyhow!("Not a valid utf16 blob"),
+      "GenericFailure",
+    );
+  }
+
+  #[test]
+  fn into_optional_keeps_the_cause() {
+    let err = into_optional::<String>(Err(platform_error())).unwrap_err();
+    assert_eq!(err.status, "NoStorageAccess");
+    assert_eq!(err.reason, platform_error().to_string());
+    assert_eq!(err.cause.as_deref().unwrap().reason, INNER);
+  }
+
+  #[test]
+  fn into_deleted_keeps_the_cause() {
+    let err = into_deleted(Err(platform_error())).unwrap_err();
+    assert_eq!(err.status, "NoStorageAccess");
+    assert_eq!(err.reason, platform_error().to_string());
+    assert_eq!(err.cause.as_deref().unwrap().reason, INNER);
   }
 }

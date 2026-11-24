@@ -3,7 +3,7 @@ use napi_derive::napi;
 
 use crate::entry_builder::create_entry;
 use crate::options::EntryOptions;
-use crate::result::{into_deleted, into_napi, into_optional, throw_coded};
+use crate::result::{into_deleted, into_napi, into_optional, reject_coded};
 
 #[napi]
 pub struct Entry {
@@ -155,9 +155,9 @@ pub struct FindCredentials {
 
 #[napi]
 impl Task for FindCredentials {
-  // Task::compute must fail with a `Status`-typed error, so the coded
-  // `Error<String>` rides inside `Output` and `resolve` throws it — the
-  // JS promise still rejects with the coded error.
+  // Task::compute can only fail with a `Status`-typed error, so the coded
+  // `Error<String>` rides inside `Output` and `resolve` rejects with it
+  // through `reject_coded`.
   type Output = std::result::Result<Vec<Credential>, Error<String>>;
   type JsValue = Vec<Credential>;
 
@@ -174,10 +174,7 @@ impl Task for FindCredentials {
   }
 
   fn resolve(&mut self, env: Env, output: Self::Output) -> Result<Self::JsValue> {
-    match output {
-      Ok(found) => Ok(found),
-      Err(err) => throw_coded(&env, err),
-    }
+    output.or_else(|err| reject_coded(&env, err))
   }
 }
 

@@ -45,33 +45,44 @@ description, so distinct targets keep distinct credentials.
 
 # Error codes
 
-Every error thrown by this package carries a stable, machine-readable `code` property — one of the
-[`keyring_core::Error`](https://docs.rs/keyring-core) variant names:
+Errors from the credential store carry a machine-readable `code` property: the name of the
+[`keyring_core::Error`](https://docs.rs/keyring-core/latest/keyring_core/error/enum.Error.html) variant, or
+`GenericFailure` for anything else.
 
-| `code` | Meaning |
-| --- | --- |
-| `NoStorageAccess` | The credential store exists but could not be used (locked, permission denied, no D-Bus session). |
-| `NoEntry` | Reserved — a missing entry resolves to `null`/`false` rather than throwing, so this code normally never surfaces. |
-| `PlatformFailure` | The store answered with an error (IPC failure, daemon crashed). |
-| `Ambiguous` | More than one platform credential matches the entry. |
-| `BadEncoding` | Stored secret bytes are not valid UTF-8. |
-| `BadDataFormat` | Stored attributes are malformed. |
-| `BadStoreFormat` | The store's own persisted format is malformed. |
-| `TooLong` | An attribute exceeds a platform limit. |
-| `Invalid` | An attribute value is invalid for this store. |
-| `NoDefaultStore` | No credential store is available on this platform. |
-| `NotSupportedByStore` | The operation is not implemented by the selected store. |
-| `GenericFailure` | Anything not originating in `keyring_core` (and future variants) keeps the pre-3.x code. |
+| `code`                | Meaning                                                                                                                      |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `NoStorageAccess`     | The store is locked, access was denied, or an unlock prompt was dismissed.                                                   |
+| `PlatformFailure`     | The platform store returned an error (for example no D-Bus session).                                                         |
+| `NoEntry`             | Not thrown by `get*`/`delete*` (they return `null`/`false`). `set*` can throw it on keyutils if the session keyring expired. |
+| `Ambiguous`           | More than one platform credential matches the entry.                                                                         |
+| `BadEncoding`         | `getPassword` found a secret that is not valid text. `getSecret` returns the raw bytes.                                      |
+| `BadDataFormat`       | A stored secret blob is not in the format the store expects.                                                                 |
+| `BadStoreFormat`      | The store's own persisted data is malformed.                                                                                 |
+| `TooLong`             | A value is longer than the platform allows.                                                                                  |
+| `Invalid`             | The store rejected a value (for example an empty service name on macOS).                                                     |
+| `NoDefaultStore`      | No default store is set. Not expected from this package.                                                                     |
+| `NotSupportedByStore` | The store does not support the operation.                                                                                    |
+| `GenericFailure`      | The error did not come from `keyring_core`, for example a `findCredentials` failure.                                         |
 
-Codes are a compatibility contract: the code for a given error kind will not change between releases,
-so consumers can branch on `error.code`. `error.message` remains the human-readable text and may
-change at any time — do not match on it.
+Errors raised by napi-rs itself keep their own codes. A bad argument throws `InvalidArg`, `StringExpected`, and so on.
+If an `AbortSignal` fires while the task is still queued, the promise rejects with an `AbortError` whose `code` is
+`Cancelled`; a task that has already started is not cancelled.
+
+The code strings will not be renamed. Which code a platform condition maps to follows the keyring-core store crates.
+`error.message` is human-readable text and may change, so branch on `code`, not on the message.
 
 ```js
+import { AsyncEntry } from '@napi-rs/keyring'
+
+const entry = new AsyncEntry('my_service', 'my_name')
 try {
-  await entry.getPassword()
+  console.log('My password is ', await entry.getPassword())
 } catch (err) {
-  if (err.code === 'NoStorageAccess') /* show "unlock your keychain" */
+  if (err.code === 'NoStorageAccess') {
+    console.error('Unlock your keychain and try again')
+  } else {
+    throw err
+  }
 }
 ```
 

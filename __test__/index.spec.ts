@@ -56,7 +56,7 @@ test('Should create and set secret async', async (t) => {
 test('Should handle binary data correctly with setSecret/getSecret', (t) => {
   const entry = new Entry(testService, testUser)
   // Test with binary data that includes null bytes and high values
-  const binaryData = new Uint8Array([0x00, 0x01, 0x7F, 0x80, 0xFF, 0xDE, 0xAD, 0xBE, 0xEF])
+  const binaryData = new Uint8Array([0x00, 0x01, 0x7f, 0x80, 0xff, 0xde, 0xad, 0xbe, 0xef])
   t.notThrows(() => entry.setSecret(binaryData))
   const retrievedSecret = entry.getSecret()
   t.truthy(retrievedSecret)
@@ -67,7 +67,7 @@ test('Should handle binary data correctly with setSecret/getSecret', (t) => {
 test('Should handle binary data correctly with setSecret/getSecret async', async (t) => {
   const entry = new AsyncEntry(testService, testUser)
   // Test with binary data that includes null bytes and high values
-  const binaryData = new Uint8Array([0x00, 0x01, 0x7F, 0x80, 0xFF, 0xDE, 0xAD, 0xBE, 0xEF])
+  const binaryData = new Uint8Array([0x00, 0x01, 0x7f, 0x80, 0xff, 0xde, 0xad, 0xbe, 0xef])
   await t.notThrowsAsync(() => entry.setSecret(binaryData))
   const retrievedSecret = await entry.getSecret()
   t.truthy(retrievedSecret)
@@ -113,6 +113,37 @@ test('Should return no secret value when the entry is missing async', async (t) 
 test('Should return no secret value when the entry is missing', (t) => {
   const entry = new Entry(testService, testMissingSecretUser)
   t.is(entry.getSecret(), null)
+})
+
+// A dedicated service keeps the undecodable credential out of the
+// findCredentials(testService) results asserted by other tests.
+const testBadEncodingService = 'keyring-node-test-service-bad-encoding'
+const notUtf8 = new Uint8Array([0xff]) // invalid as UTF-8, and an odd length for UTF-16 on Windows
+
+test('Should throw a coded error when the password is not valid text', (t) => {
+  const entry = new Entry(testBadEncodingService, 'test-bad-encoding-user')
+  try {
+    entry.setSecret(notUtf8)
+    const err = t.throws(() => entry.getPassword(), { code: 'BadEncoding' })
+    t.true(err instanceof Error)
+    t.is(typeof err?.message, 'string')
+    t.not(err?.message, '')
+  } finally {
+    entry.deleteCredential()
+  }
+})
+
+test('Should reject with a coded error when the password is not valid text async', async (t) => {
+  const entry = new AsyncEntry(testBadEncodingService, 'test-bad-encoding-async-user')
+  try {
+    await entry.setSecret(notUtf8)
+    const err = await t.throwsAsync(entry.getPassword(), { code: 'BadEncoding' })
+    t.true(err instanceof Error)
+    t.is(typeof err?.message, 'string')
+    t.not(err?.message, '')
+  } finally {
+    await entry.deleteCredential()
+  }
 })
 
 let testTarget: string | undefined
