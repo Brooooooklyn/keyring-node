@@ -194,14 +194,15 @@ jobs:
   build-freebsd:
     runs-on: ubuntu-latest
     name: Build FreeBSD
+    # cpa.sh forwards these with SSH SendEnv, which reads them from the
+    # environment of the step that runs cpa.sh, so they are set for the job.
+    env:
+      DEBUG: napi:*
+      RUSTUP_IO_THREADS: 1
     steps:
       - uses: actions/checkout@v7
-      - name: Build
-        id: build
+      - name: Start VM
         uses: cross-platform-actions/action@v1.8.0
-        env:
-          DEBUG: napi:*
-          RUSTUP_IO_THREADS: 1
         with:
           operating_system: freebsd
           version: '15.0'
@@ -209,32 +210,35 @@ jobs:
           cpu_count: 3
           environment_variables: 'DEBUG RUSTUP_IO_THREADS'
           shell: bash
-          run: |
-            sudo pkg install -y -f curl www/node www/npm libnghttp2 dbus pkgconf
-            sudo npm install --location=global --ignore-scripts yarn
-            curl https://sh.rustup.rs -sSf --output rustup.sh
-            sh rustup.sh -y --profile minimal --default-toolchain beta
-            source "$HOME/.cargo/env"
-            echo "~~~~ rustc --version ~~~~"
-            rustc --version
-            echo "~~~~ node -v ~~~~"
-            node -v
-            echo "~~~~ yarn --version ~~~~"
-            yarn --version
-            pwd
-            ls -lah
-            whoami
-            env
-            freebsd-version
-            cargo install --locked cargo-auditable@0.7.7 rust-audit-info
-            yarn install
-            RUSTC_WORKSPACE_WRAPPER=cargo-auditable \
-              CARGO_AUDITABLE_ORIG_ARGS='{"offline":false,"locked":true,"frozen":false,"config":[]}' \
-              yarn build -- --locked
-            rust-audit-info keyring.*.node > /dev/null || { echo "no cargo-auditable data in the FreeBSD binary"; exit 1; }
-            rm -rf node_modules
-            rm -rf target
-            rm -rf .yarn/cache
+      - name: Build
+        id: build
+        shell: cpa.sh {0}
+        run: |
+          sudo pkg install -y -f curl www/node www/npm libnghttp2 dbus pkgconf
+          sudo npm install --location=global --ignore-scripts yarn
+          curl https://sh.rustup.rs -sSf --output rustup.sh
+          sh rustup.sh -y --profile minimal --default-toolchain beta
+          source "$HOME/.cargo/env"
+          echo "~~~~ rustc --version ~~~~"
+          rustc --version
+          echo "~~~~ node -v ~~~~"
+          node -v
+          echo "~~~~ yarn --version ~~~~"
+          yarn --version
+          pwd
+          ls -lah
+          whoami
+          env
+          freebsd-version
+          cargo install --locked cargo-auditable@0.7.7 rust-audit-info
+          yarn install
+          RUSTC_WORKSPACE_WRAPPER=cargo-auditable \
+            CARGO_AUDITABLE_ORIG_ARGS='{"offline":false,"locked":true,"frozen":false,"config":[]}' \
+            yarn build -- --locked
+          rust-audit-info keyring.*.node > /dev/null || { echo "no cargo-auditable data in the FreeBSD binary"; exit 1; }
+          rm -rf node_modules
+          rm -rf target
+          rm -rf .yarn/cache
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
