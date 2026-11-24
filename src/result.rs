@@ -57,10 +57,14 @@ where
 /// error, so async work carries the [`Error<String>`] in its `Output` and
 /// `resolve` hands it here. The coded error is turned into a JS error object
 /// and returned as an error that references it; napi then rejects the promise
-/// with that same object. Throwing it instead would leave a pending exception,
-/// `napi_reject_deferred` would then fail, and the promise would never settle.
+/// with that same object. `from_unknown_without_coercion` keeps the object
+/// without calling into JavaScript (`From<Unknown>` would call `toString`).
+/// Throwing it instead would leave a pending exception, `napi_reject_deferred`
+/// would then fail, and the promise would never settle.
 pub(crate) fn reject_coded<T>(env: &Env, err: Error<String>) -> Result<T> {
-  Err(Error::from(JsError::from(err).into_unknown(*env)))
+  Err(Error::from_unknown_without_coercion(
+    JsError::from(err).into_unknown(*env),
+  ))
 }
 
 /// Convert a lookup result into an optional value.

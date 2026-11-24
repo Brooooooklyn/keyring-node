@@ -65,8 +65,8 @@ Errors from the credential store carry a machine-readable `code` property: the n
 | `GenericFailure`      | The error did not come from `keyring_core`, for example a `findCredentials` failure.                                         |
 
 Errors raised by napi-rs itself keep their own codes. A bad argument throws `InvalidArg`, `StringExpected`, and so on.
-If an `AbortSignal` fires while the task is still queued, the promise rejects with an `AbortError` whose `code` is
-`Cancelled`; a task that has already started is not cancelled.
+When an `AbortSignal` cancels a call, the promise rejects with an `AbortError` whose `code` is `Cancelled`. A call
+that has already started is not cancelled.
 
 The code strings will not be renamed. Which code a platform condition maps to follows the keyring-core store crates.
 `error.message` is human-readable text and may change, so branch on `code`, not on the message.
@@ -76,7 +76,8 @@ import { AsyncEntry } from '@napi-rs/keyring'
 
 const entry = new AsyncEntry('my_service', 'my_name')
 try {
-  console.log('My password is ', await entry.getPassword())
+  const password = await entry.getPassword()
+  // use password
 } catch (err) {
   if (err.code === 'NoStorageAccess') {
     console.error('Unlock your keychain and try again')
